@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DOCTOR
+  SECRETARY
+  SAAS_ADMIN
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+}
+
+model Clinic {
+  id            String         @id @default(cuid())
+  name          String
+  subscription  Subscription?
+  users         User[]
+  patients      Patient[]
+  appointments  Appointment[]
+  invoices      Invoice[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  clinicId  String   @unique
+  plan      String
+  status    String
+  seats     Int      @default(3)
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String        @id @default(cuid())
+  clinicId     String
+  email        String        @unique
+  passwordHash String
+  fullName     String
+  displayName  String
+  role         Role
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  appointments Appointment[] @relation("DoctorAppointments")
+  auditLogs    AuditLog[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Patient {
+  id                String         @id @default(cuid())
+  clinicId          String
+  firstName         String
+  lastName          String
+  phone             String
+  email             String?
+  address           String?
+  medicalHistory    String?
+  allergies         String[]
+  chronicConditions String[]
+  clinic            Clinic         @relation(fields: [clinicId], references: [id])
+  appointments      Appointment[]
+  consultations     Consultation[]
+  invoices          Invoice[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([clinicId, lastName, firstName])
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  clinicId  String
+  patientId String
+  doctorId  String
+  startsAt  DateTime
+  endsAt    DateTime
+  status    AppointmentStatus @default(PENDING)
+  reason    String
+  notes     String?
+  clinic    Clinic            @relation(fields: [clinicId], references: [id])
+  patient   Patient           @relation(fields: [patientId], references: [id])
+  doctor    User              @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([clinicId, startsAt, endsAt])
+  @@index([doctorId, startsAt])
+}
+
+model Consultation {
+  id                   String   @id @default(cuid())
+  patientId            String
+  doctorName           String   @default("Dr Firas Sayari")
+  doctorShortName      String   @default("Firas .S")
+  symptoms             String
+  diagnosis            String
+  treatment            String
+  medicalActs          String[]
+  aiSummary            String?
+  diagnosticSuggestion String?
+  priceCents           Int
+  patient              Patient  @relation(fields: [patientId], references: [id])
+  invoice              Invoice?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Invoice {
+  id             String         @id @default(cuid())
+  clinicId       String
+  patientId      String
+  consultationId String?        @unique
+  number         String         @unique
+  doctorName     String         @default("Dr Firas Sayari")
+  doctorShortName String        @default("Firas .S")
+  amountCents    Int
+  paidAt         DateTime?
+  paymentMethod  PaymentMethod?
+  pdfUrl         String?
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  consultation   Consultation?  @relation(fields: [consultationId], references: [id])
+  createdAt      DateTime       @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
