@@ -39,6 +39,15 @@ type FinanceSummary = {
 type Reminder = { id: string; channel: string; target: string; status: string; message: string };
 type PlatformStats = { clinics: number; activeSubscriptions: number; doctors: number; monthlyRecurringRevenueCents: number; auditEvents24h: number };
 type InvoicePreview = { number: string; patientName: string; amountCents: number; pdfStatus: string };
+type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
+
+const adminPages: Array<{ page: AdminPage; href: string; label: string; icon: ReactNode }> = [
+  { page: "dashboard", href: "/admin", label: "Tableau", icon: <Activity /> },
+  { page: "agenda", href: "/admin/agenda", label: "Agenda", icon: <CalendarCheck /> },
+  { page: "patients", href: "/admin/patients", label: "Patients", icon: <Users /> },
+  { page: "consultations", href: "/admin/consultations", label: "Consultations", icon: <FileText /> },
+  { page: "finance", href: "/admin/finance", label: "Finance", icon: <CreditCard /> }
+];
 
 export function App() {
   return window.location.pathname.startsWith("/admin") ? <AdminDashboard /> : <PatientLanding />;
@@ -244,17 +253,21 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
     api<PlatformStats>("/api/admin/platform-stats", auth(token)).then(setPlatform).catch((error) => setNotice(readError(error)));
   }, [token, user.role]);
 
+  const page = currentAdminPage();
   const pending = appointments.filter((appointment) => appointment.status === "PENDING").length;
+  const title = adminPages.find((route) => route.page === page)?.label ?? "Tableau";
 
   return (
     <main className="admin-shell">
       <aside>
         <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari</strong></a>
-        <nav>
-          <a href="#agenda"><CalendarCheck /> Agenda</a>
-          <a href="#patients"><Users /> Patients</a>
-          <a href="#consultation"><FileText /> Consultation</a>
-          <a href="#finance"><CreditCard /> Finance</a>
+        <nav aria-label="Administration">
+          {adminPages.map((route) => (
+            <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href}>
+              {route.icon}
+              {route.label}
+            </a>
+          ))}
         </nav>
         <button onClick={onLogout}><LogOut /> Deconnexion</button>
       </aside>
@@ -263,70 +276,137 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         <header>
           <div>
             <p className="eyebrow">{user.role.replaceAll("_", " ")}</p>
-            <h1>Bonjour {user.displayName}</h1>
+            <h1>{title}</h1>
+            <span>Bonjour {user.displayName}</span>
           </div>
-          <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" /></label>
+          {page === "patients" ? <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" /></label> : null}
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
-
-        <section className="metrics">
-          <Metric icon={<CalendarCheck />} label="Rendez-vous" value={String(appointments.length)} detail={`${pending} demande(s) en attente`} />
-          <Metric icon={<Users />} label="Patients visibles" value={String(patients.length)} detail="Recherche et creation active" />
-          <Metric icon={<CreditCard />} label="Revenu du mois" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
-          <Metric icon={<BellRing />} label="Rappels" value={String(reminders.length)} detail="SMS et email" />
-        </section>
-
-        <section id="agenda" className="admin-grid agenda-grid">
-          <Panel title="Agenda du cabinet" subtitle="Demandes patients et rendez-vous internes.">
-            <AppointmentTimeline appointments={appointments} />
-          </Panel>
-          <CreateAppointment token={token} onCreated={() => setRefreshId((value) => value + 1)} />
-        </section>
-
-        <section id="patients" className="admin-grid">
-          <Panel title="Patients" subtitle="Dossiers recents et coordonnees.">
-            <div className="patient-list">
-              {patients.map((patient) => (
-                <article key={patient.id}>
-                  <strong>{patient.firstName} {patient.lastName}</strong>
-                  <span>{patient.phone}</span>
-                  <small>{patient.allergies.join(", ") || "Aucune allergie signalee"}</small>
-                </article>
-              ))}
-            </div>
-          </Panel>
-          <CreatePatient token={token} onCreated={() => setRefreshId((value) => value + 1)} />
-        </section>
-
-        <section id="consultation" className="admin-grid">
-          <DictationTool token={token} patients={patients} />
-          <InvoiceTool token={token} />
-        </section>
-
-        <section id="finance" className="admin-grid finance-grid">
-          <Panel title="Activite et facturation" subtitle="Suivi mensuel du cabinet.">
-            <div className="chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueSeries}>
-                  <defs><linearGradient id="income" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#14765d" stopOpacity={0.32} /><stop offset="95%" stopColor="#14765d" stopOpacity={0.04} /></linearGradient></defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke="#d7e0da" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="revenue" stroke="#14765d" fill="url(#income)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Panel>
-          <Panel title="Rappels et securite" subtitle="Evenements operationnels.">
-            <div className="reminders">
-              {reminders.map((reminder) => <article key={reminder.id}><BellRing /><strong>{reminder.message}</strong><span>{reminder.channel} - {reminder.status} - {reminder.target}</span></article>)}
-              {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} medecin</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
-            </div>
-          </Panel>
-        </section>
+        {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} /> : null}
+        {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onCreated={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "patients" ? <PatientsPage patients={patients} token={token} onCreated={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} /> : null}
+        {page === "finance" ? <FinancePage token={token} finance={finance} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
+  );
+}
+
+function AdminOverview({ appointments, patients, finance, reminders, platform, pending }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null; pending: number }) {
+  return (
+    <div className="admin-page">
+      <section className="metrics">
+        <Metric icon={<CalendarCheck />} label="Rendez-vous" value={String(appointments.length)} detail={`${pending} demande(s) en attente`} />
+        <Metric icon={<Users />} label="Patients visibles" value={String(patients.length)} detail="Dossiers disponibles" />
+        <Metric icon={<CreditCard />} label="Revenu du mois" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
+        <Metric icon={<BellRing />} label="Rappels" value={String(reminders.length)} detail="SMS et email" />
+      </section>
+      <section className="admin-grid">
+        <Panel title="Prochains rendez-vous" subtitle="Apercu de l'agenda du cabinet.">
+          <AppointmentTimeline appointments={appointments.slice(0, 5)} />
+        </Panel>
+        <OperationsPanel reminders={reminders} platform={platform} />
+      </section>
+    </div>
+  );
+}
+
+function AgendaPage({ appointments, token, onCreated }: { appointments: AppointmentSummary[]; token: string; onCreated: () => void }) {
+  return (
+    <section className="admin-page admin-grid agenda-grid">
+      <Panel title="Agenda du cabinet" subtitle="Demandes patients et rendez-vous internes.">
+        <AppointmentTimeline appointments={appointments} />
+      </Panel>
+      <CreateAppointment token={token} onCreated={onCreated} />
+    </section>
+  );
+}
+
+function PatientsPage({ patients, token, onCreated }: { patients: PatientSummary[]; token: string; onCreated: () => void }) {
+  return (
+    <section className="admin-page admin-grid">
+      <Panel title="Patients" subtitle="Dossiers recents et coordonnees.">
+        <PatientList patients={patients} />
+      </Panel>
+      <CreatePatient token={token} onCreated={onCreated} />
+    </section>
+  );
+}
+
+function ConsultationsPage({ token, patients }: { token: string; patients: PatientSummary[] }) {
+  return (
+    <section className="admin-page consultation-page">
+      <DictationTool token={token} patients={patients} />
+      <Panel title="Patients disponibles" subtitle="Selectionnez le dossier dans la consultation.">
+        <PatientList patients={patients} />
+      </Panel>
+    </section>
+  );
+}
+
+function FinancePage({ token, finance, reminders, platform }: { token: string; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null }) {
+  return (
+    <div className="admin-page">
+      <section className="metrics finance-metrics">
+        <Metric icon={<CreditCard />} label="Encaisse" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
+        <Metric icon={<CreditCard />} label="Impayes" value={money(finance?.unpaidCents)} detail="A relancer" />
+        <Metric icon={<CreditCard />} label="Paiements cash" value={money(finance?.payments.cashCents)} detail="Recettes du mois" />
+        <Metric icon={<CreditCard />} label="Paiements carte" value={money(finance?.payments.cardCents)} detail="Recettes du mois" />
+      </section>
+      <section className="admin-grid finance-grid">
+        <RevenuePanel />
+        <InvoiceTool token={token} />
+      </section>
+      <section className="admin-grid finance-grid">
+        <OperationsPanel reminders={reminders} platform={platform} />
+      </section>
+    </div>
+  );
+}
+
+function RevenuePanel() {
+  return (
+    <Panel title="Activite et facturation" subtitle="Suivi mensuel du cabinet.">
+      <div className="chart">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={revenueSeries}>
+            <defs><linearGradient id="income" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#14765d" stopOpacity={0.32} /><stop offset="95%" stopColor="#14765d" stopOpacity={0.04} /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="4 4" stroke="#d7e0da" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Area type="monotone" dataKey="revenue" stroke="#14765d" fill="url(#income)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </Panel>
+  );
+}
+
+function OperationsPanel({ reminders, platform }: { reminders: Reminder[]; platform: PlatformStats | null }) {
+  return (
+    <Panel title="Rappels et securite" subtitle="Evenements operationnels.">
+      <div className="reminders">
+        {reminders.map((reminder) => <article key={reminder.id}><BellRing /><strong>{reminder.message}</strong><span>{reminder.channel} - {reminder.status} - {reminder.target}</span></article>)}
+        {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} medecin</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
+      </div>
+    </Panel>
+  );
+}
+
+function PatientList({ patients }: { patients: PatientSummary[] }) {
+  if (!patients.length) return <p className="empty">Aucun patient trouve.</p>;
+
+  return (
+    <div className="patient-list">
+      {patients.map((patient) => (
+        <article key={patient.id}>
+          <strong>{patient.firstName} {patient.lastName}</strong>
+          <span>{patient.phone}</span>
+          <small>{patient.allergies.join(", ") || "Aucune allergie signalee"}</small>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -476,6 +556,17 @@ function tomorrowDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return date.toISOString().slice(0, 10);
+}
+
+function currentAdminPage(): AdminPage {
+  const path = window.location.pathname.replace(/\/+$/, "");
+  const legacyHash = window.location.hash.replace("#", "");
+
+  if (path === "/admin/agenda" || legacyHash === "agenda") return "agenda";
+  if (path === "/admin/patients" || legacyHash === "patients") return "patients";
+  if (path === "/admin/consultations" || legacyHash === "consultation") return "consultations";
+  if (path === "/admin/finance" || legacyHash === "finance") return "finance";
+  return "dashboard";
 }
 
 function parseUser(value: string | null) {

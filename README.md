@@ -15,6 +15,13 @@ Public booking page: `/`
 
 Cabinet workspace: `/admin`
 
+Admin pages:
+
+- `/admin/agenda`
+- `/admin/patients`
+- `/admin/consultations`
+- `/admin/finance`
+
 Backend:
 
 ```bash
