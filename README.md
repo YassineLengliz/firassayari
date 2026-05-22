@@ -29,10 +29,20 @@ Demo login:
 - `secretariat@medcabinet.ai` / `demo1234`
 - `admin@medcabinet.ai` / `demo1234`
 
+## Vercel
+
+Import this repository as one Vercel project with the project root left at the repository root. `vercel.json` builds the Vite app to `frontend/dist`, keeps SPA routes such as `/admin` on the frontend, and routes `/api/*` into one Nest-backed Vercel Function.
+
+Set Vercel environment variables for `DATABASE_URL`, `JWT_SECRET`, and `OPENAI_API_KEY` when they are used. Keep `VITE_API_URL` unset or blank for Vercel so browser requests stay on the same deployment domain.
+
+The Vercel API entrypoint is `api/server.ts`; local development still uses the Nest backend command above.
+
 ## Key Paths
 
 - `frontend/src/App.tsx`: Vite public booking page and `/admin` workspace.
 - `backend/src`: NestJS API modules.
+- `api/server.ts`: single-project Vercel API function.
+- `vercel.json`: Vite output directory and one-domain frontend/API rewrites.
 - `database/prisma/schema.prisma`: PostgreSQL Prisma model.
 - `ai-service/src/index.ts`: provider boundary for Whisper/OpenAI medical NLP.
 - `shared/src/index.ts`: shared roles, appointment contracts and doctor identity.

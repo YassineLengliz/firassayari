@@ -18,7 +18,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { revenueSeries } from "./lib/mock-data";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 const savedTokenKey = "firassayari-token";
 const savedUserKey = "firassayari-user";
 

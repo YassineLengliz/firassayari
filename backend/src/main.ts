@@ -1,22 +1,10 @@
-import { ValidationPipe } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { NestFactory } from "@nestjs/core";
-import helmet from "helmet";
-import { AppModule } from "./app.module";
+import { createApplication } from "./platform";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const config = app.get(ConfigService);
+  const app = await createApplication();
+  const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 
-  app.use(helmet());
-  app.enableCors({
-    origin: config.get<string>("FRONTEND_ORIGIN", "http://localhost:3000"),
-    credentials: true
-  });
-  app.setGlobalPrefix("api");
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-
-  await app.listen(config.get<number>("PORT", 4000));
+  await app.listen(port);
 }
 
 void bootstrap();
