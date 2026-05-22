@@ -14,13 +14,14 @@
     "dev:frontend": "npm run build --workspace shared && npm run dev --workspace frontend",
     "dev:backend": "npm run build --workspace shared && npm run start:dev --workspace backend",
     "build": "npm run build --workspace shared && npm run build --workspace backend && npm run build --workspace frontend",
-    "build:vercel": "npm run prisma:generate && npm run build --workspace shared && npm run build --workspace frontend",
+    "build:vercel": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run build --workspace shared && npm run build --workspace frontend",
     "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
     "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace backend && npm run typecheck --workspace frontend && npm run typecheck:vercel",
     "typecheck:vercel": "tsc -p tsconfig.json --noEmit",
     "postinstall": "npm run prisma:generate",
     "prisma:generate": "npm run prisma:generate --workspace backend",
-    "prisma:push": "prisma db push --schema database/prisma/schema.prisma"
+    "prisma:push": "prisma db push --schema database/prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema database/prisma/schema.prisma"
   },
   "engines": {
     "node": ">=20"
