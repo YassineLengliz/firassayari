@@ -364,8 +364,6 @@ output.error,
 }
 
 .workspace h1 {
-  font-size: 1.2rem;
-  line-height: 1;
   margin: 0;
 }
 
@@ -445,24 +443,10 @@ output.error,
   padding: 0;
 }
 
-.workspace > header > div {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.65rem;
-  line-height: 1;
-}
-
-.workspace > header .eyebrow {
-  font-size: 0.68rem;
-  line-height: 1;
-}
-
 .workspace > header span {
   color: var(--muted);
-  display: inline;
-  font-size: 0.8rem;
-  line-height: 1;
+  display: block;
+  font-size: 0.92rem;
   margin-top: 0;
 }
 
