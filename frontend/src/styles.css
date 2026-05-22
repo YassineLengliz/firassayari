@@ -520,6 +520,149 @@ output.error,
   align-items: start;
 }
 
+.agenda-page {
+  align-items: start;
+  grid-template-columns: minmax(34rem, 1fr) minmax(19rem, 22rem);
+}
+
+.agenda-side {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.cabinet-calendar {
+  min-height: 40rem;
+}
+
+.cabinet-calendar .fc {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.cabinet-calendar .fc .fc-toolbar {
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.95rem;
+}
+
+.cabinet-calendar .fc .fc-toolbar-title {
+  color: #23456b;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-weight: 850;
+}
+
+.cabinet-calendar .fc .fc-button-primary {
+  background: var(--coral);
+  border-color: var(--coral);
+  box-shadow: 0 6px 14px rgba(194, 89, 66, 0.18);
+  min-height: 2.35rem;
+  text-transform: none;
+}
+
+.cabinet-calendar .fc .fc-button-primary:disabled {
+  background: #e09b8b;
+  border-color: #e09b8b;
+  opacity: 1;
+}
+
+.cabinet-calendar .fc .fc-scrollgrid,
+.cabinet-calendar .fc-theme-standard td,
+.cabinet-calendar .fc-theme-standard th {
+  border-color: #e1e8e4;
+}
+
+.cabinet-calendar .fc .fc-col-header-cell-cushion {
+  color: #7b8a98;
+  font-weight: 850;
+  padding: 0.8rem 0.35rem 0.45rem;
+}
+
+.cabinet-calendar .fc .fc-daygrid-day-number {
+  color: #64727c;
+  padding: 0.48rem 0.56rem;
+}
+
+.cabinet-calendar .fc .fc-day-other .fc-daygrid-day-number {
+  color: #c1c8cd;
+}
+
+.cabinet-calendar .fc .fc-day-today {
+  background: rgba(20, 118, 93, 0.06);
+}
+
+.cabinet-calendar .fc .fc-daygrid-event {
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 5px 12px rgba(19, 35, 31, 0.12);
+  cursor: pointer;
+  margin: 0.14rem 0.2rem;
+  padding: 0.22rem 0.34rem;
+}
+
+.cabinet-calendar .fc .fc-event-title {
+  font-weight: 780;
+}
+
+.cabinet-calendar .fc .calendar-event.confirmed {
+  background: #2d86dc;
+}
+
+.cabinet-calendar .fc .calendar-event.pending {
+  background: #e64b7c;
+}
+
+.cabinet-calendar .fc .calendar-event.completed {
+  background: #198067;
+}
+
+.cabinet-calendar .fc .calendar-event.cancelled {
+  background: #7b8a98;
+}
+
+.appointment-details {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.appointment-details > strong {
+  font-size: 1.08rem;
+}
+
+.appointment-details time,
+.appointment-details > span,
+.appointment-details small {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.appointment-details article {
+  background: var(--mist);
+  border: 1px solid #dce7e2;
+  border-radius: 7px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.72rem;
+}
+
+.appointment-details article p {
+  color: var(--coral);
+  font-size: 0.75rem;
+  font-weight: 850;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.appointment-details .status {
+  justify-self: start;
+}
+
+.danger-command {
+  background: #b63b31;
+  border-color: #b63b31;
+  justify-self: start;
+}
+
 .panel {
   min-width: 0;
   padding: 1rem;
@@ -706,6 +849,7 @@ output.error,
   .cabinet-band,
   .metrics,
   .admin-grid,
+  .agenda-page,
   .consultation-page {
     grid-template-columns: 1fr;
   }
@@ -737,6 +881,15 @@ output.error,
 
   .timeline article {
     grid-template-columns: 1fr;
+  }
+
+  .cabinet-calendar {
+    min-height: 32rem;
+    overflow-x: auto;
+  }
+
+  .cabinet-calendar .fc {
+    min-width: 40rem;
   }
 
   .status {

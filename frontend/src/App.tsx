@@ -11,9 +11,14 @@ import {
   Search,
   ShieldCheck,
   Stethoscope,
+  Trash2,
   UserRoundPlus,
   Users
 } from "lucide-react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
+import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -281,7 +286,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
         {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} /> : null}
-        {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onCreated={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "agenda" ? <AgendaPage appointments={appointments} patients={patients} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
         {page === "patients" ? <PatientsPage patients={patients} token={token} onCreated={() => setRefreshId((value) => value + 1)} /> : null}
         {page === "consultations" ? <ConsultationsPage token={token} patients={patients} /> : null}
         {page === "finance" ? <FinancePage token={token} finance={finance} reminders={reminders} platform={platform} /> : null}
@@ -309,14 +314,118 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
   );
 }
 
-function AgendaPage({ appointments, token, onCreated }: { appointments: AppointmentSummary[]; token: string; onCreated: () => void }) {
+function AgendaPage({ appointments, patients, token, onChanged }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; token: string; onChanged: () => void }) {
+  const [draftDate, setDraftDate] = useState(tomorrowDate());
+  const [selectedId, setSelectedId] = useState("");
+  const [message, setMessage] = useState("");
+  const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (selectedId && !selectedAppointment) setSelectedId("");
+  }, [selectedAppointment, selectedId]);
+
+  async function moveAppointment(info: EventDropArg) {
+    if (!info.event.start || !info.event.end) {
+      info.revert();
+      return;
+    }
+
+    try {
+      await api(`/api/appointments/${info.event.id}/move`, {
+        ...auth(token),
+        method: "PATCH",
+        body: JSON.stringify({ startsAt: info.event.start.toISOString(), endsAt: info.event.end.toISOString() })
+      });
+      setMessage("Rendez-vous deplace.");
+      onChanged();
+    } catch (error) {
+      info.revert();
+      setMessage(readError(error));
+    }
+  }
+
+  function pickDate(info: DateClickArg) {
+    setDraftDate(info.dateStr.slice(0, 10));
+    setMessage("Date choisie pour le nouveau rendez-vous.");
+  }
+
+  function selectAppointment(info: EventClickArg) {
+    setSelectedId(info.event.id);
+  }
+
   return (
-    <section className="admin-page admin-grid agenda-grid">
+    <section className="admin-page agenda-page">
       <Panel title="Agenda du cabinet" subtitle="Demandes patients et rendez-vous internes.">
-        <AppointmentTimeline appointments={appointments} />
+        <div className="cabinet-calendar">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{ left: "title", center: "", right: "today prev,next" }}
+            buttonText={{ today: "Aujourd'hui" }}
+            dateClick={pickDate}
+            eventClick={selectAppointment}
+            eventDrop={moveAppointment}
+            editable
+            eventDurationEditable={false}
+            events={appointments.map((appointment) => ({
+              id: appointment.id,
+              title: appointment.patientName,
+              start: appointment.startsAt,
+              end: appointment.endsAt,
+              className: `calendar-event ${appointment.status.toLowerCase()}`
+            }))}
+          />
+        </div>
+        {message ? <output>{message}</output> : null}
       </Panel>
-      <CreateAppointment token={token} onCreated={onCreated} />
+      <section className="agenda-side">
+        <CreateAppointment token={token} onCreated={onChanged} selectedDate={draftDate} />
+        <AppointmentDetails appointment={selectedAppointment} patients={patients} token={token} onRemoved={onChanged} />
+      </section>
     </section>
+  );
+}
+
+function AppointmentDetails({ appointment, patients, token, onRemoved }: { appointment: AppointmentSummary | null; patients: PatientSummary[]; token: string; onRemoved: () => void }) {
+  const [message, setMessage] = useState("");
+  const patient = appointment ? matchingPatient(appointment.patientName, patients) : null;
+
+  useEffect(() => setMessage(""), [appointment?.id]);
+
+  async function remove() {
+    if (!appointment) return;
+
+    try {
+      await api(`/api/appointments/${appointment.id}`, { ...auth(token), method: "DELETE" });
+      setMessage("Rendez-vous supprime.");
+      onRemoved();
+    } catch (error) {
+      setMessage(readError(error));
+    }
+  }
+
+  return (
+    <Panel title="Rendez-vous selectionne" subtitle="Dossier du rendez-vous et informations patient.">
+      {!appointment ? <p className="empty">Aucun rendez-vous selectionne.</p> : (
+        <div className="appointment-details">
+          <strong>{appointment.patientName}</strong>
+          <time>{appointmentDateTime(appointment)}</time>
+          <span>{appointment.reason}</span>
+          <Status value={appointment.status} />
+          {patient ? (
+            <article>
+              <p>Dossier patient</p>
+              <strong>{patient.firstName} {patient.lastName}</strong>
+              <span>{patient.phone}</span>
+              <small>Allergies: {patient.allergies.join(", ") || "Aucune signalee"}</small>
+              <small>Pathologies: {patient.chronicConditions.join(", ") || "Aucune signalee"}</small>
+            </article>
+          ) : <p className="empty">Aucun dossier patient correspondant.</p>}
+          <button className="danger-command" type="button" onClick={remove}><Trash2 /> Supprimer</button>
+        </div>
+      )}
+      {message ? <output>{message}</output> : null}
+    </Panel>
   );
 }
 
@@ -398,9 +507,11 @@ function PatientList({ patients }: { patients: PatientSummary[] }) {
   );
 }
 
-function CreateAppointment({ token, onCreated }: { token: string; onCreated: () => void }) {
-  const [form, setForm] = useState({ patientName: "", date: tomorrowDate(), time: "10:00", reason: "Consultation", status: "CONFIRMED" as AppointmentStatus });
+function CreateAppointment({ token, onCreated, selectedDate = tomorrowDate() }: { token: string; onCreated: () => void; selectedDate?: string }) {
+  const [form, setForm] = useState({ patientName: "", date: selectedDate, time: "10:00", reason: "Consultation", status: "CONFIRMED" as AppointmentStatus });
   const [message, setMessage] = useState("");
+
+  useEffect(() => setForm((current) => ({ ...current, date: selectedDate })), [selectedDate]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -544,6 +655,21 @@ function tomorrowDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return date.toISOString().slice(0, 10);
+}
+
+function appointmentDateTime(appointment: AppointmentSummary) {
+  const startsAt = new Date(appointment.startsAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+  const endsAt = new Date(appointment.endsAt).toLocaleTimeString("fr-FR", { timeStyle: "short" });
+  return `${startsAt} - ${endsAt}`;
+}
+
+function matchingPatient(patientName: string, patients: PatientSummary[]) {
+  const name = normalize(patientName);
+  return patients.find((patient) => name === normalize(`${patient.firstName} ${patient.lastName}`)) ?? null;
+}
+
+function normalize(value: string) {
+  return value.trim().toLocaleLowerCase("fr-FR").replace(/\s+/g, " ");
 }
 
 function currentAdminPage(): AdminPage {
