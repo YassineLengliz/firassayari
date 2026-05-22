@@ -2,16 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { PatientSummary } from "@medcabinet/shared";
 import { randomUUID } from "crypto";
 
-const patients: PatientSummary[] = [
-  {
-    id: "pat-001",
-    firstName: "Amira",
-    lastName: "Ben Youssef",
-    phone: "+216 55 100 200",
-    allergies: ["Penicilline"],
-    chronicConditions: ["Asthme"]
-  }
-];
+const patients: PatientSummary[] = [];
 
 @Injectable()
 export class PatientsService {

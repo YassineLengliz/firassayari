@@ -4,11 +4,11 @@ import { Injectable } from "@nestjs/common";
 export class AdminService {
   platformStats() {
     return {
-      clinics: 1,
-      activeSubscriptions: 1,
+      clinics: 0,
+      activeSubscriptions: 0,
       doctors: 1,
-      monthlyRecurringRevenueCents: 49000,
-      auditEvents24h: 32
+      monthlyRecurringRevenueCents: 0,
+      auditEvents24h: 0
     };
   }
 }

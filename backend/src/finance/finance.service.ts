@@ -7,13 +7,13 @@ export class FinanceService {
     return {
       doctorName: PRIMARY_DOCTOR.fullName,
       doctorShortName: PRIMARY_DOCTOR.shortName,
-      month: "2026-05",
-      revenueCents: 1265000,
-      unpaidCents: 180000,
-      invoices: 166,
+      month: new Date().toISOString().slice(0, 7),
+      revenueCents: 0,
+      unpaidCents: 0,
+      invoices: 0,
       payments: {
-        cashCents: 426000,
-        cardCents: 839000
+        cashCents: 0,
+        cardCents: 0
       }
     };
   }

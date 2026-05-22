@@ -628,11 +628,6 @@ output.error,
   align-items: stretch;
 }
 
-.chart {
-  height: 17rem;
-  width: 100%;
-}
-
 .reminders article {
   grid-template-columns: auto 1fr;
 }

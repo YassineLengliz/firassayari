@@ -15,8 +15,6 @@ import {
   Users
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { revenueSeries } from "./lib/mock-data";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const savedTokenKey = "firassayari-token";
@@ -367,18 +365,7 @@ function FinancePage({ token, finance, reminders, platform }: { token: string; f
 function RevenuePanel() {
   return (
     <Panel title="Activite et facturation" subtitle="Suivi mensuel du cabinet.">
-      <div className="chart">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={revenueSeries}>
-            <defs><linearGradient id="income" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#14765d" stopOpacity={0.32} /><stop offset="95%" stopColor="#14765d" stopOpacity={0.04} /></linearGradient></defs>
-            <CartesianGrid strokeDasharray="4 4" stroke="#d7e0da" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Area type="monotone" dataKey="revenue" stroke="#14765d" fill="url(#income)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <p className="empty">Aucune donnee de facturation disponible.</p>
     </Panel>
   );
 }
@@ -389,6 +376,7 @@ function OperationsPanel({ reminders, platform }: { reminders: Reminder[]; platf
       <div className="reminders">
         {reminders.map((reminder) => <article key={reminder.id}><BellRing /><strong>{reminder.message}</strong><span>{reminder.channel} - {reminder.status} - {reminder.target}</span></article>)}
         {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} medecin</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
+        {!reminders.length && !platform ? <p className="empty">Aucun rappel operationnel.</p> : null}
       </div>
     </Panel>
   );
@@ -459,7 +447,7 @@ function CreatePatient({ token, onCreated }: { token: string; onCreated: () => v
 
 function DictationTool({ token, patients }: { token: string; patients: PatientSummary[] }) {
   const [patientId, setPatientId] = useState("");
-  const [rawDictation, setRawDictation] = useState("Patient avec douleur abdominale et fievre depuis 3 jours.");
+  const [rawDictation, setRawDictation] = useState("");
   const [note, setNote] = useState<StructuredMedicalNote | null>(null);
   const [consultation, setConsultation] = useState("");
 
@@ -488,7 +476,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
 }
 
 function InvoiceTool({ token }: { token: string }) {
-  const [patientName, setPatientName] = useState("Amira Ben Youssef");
+  const [patientName, setPatientName] = useState("");
   const [amount, setAmount] = useState("60");
   const [invoice, setInvoice] = useState<InvoicePreview | null>(null);
   const [error, setError] = useState("");
@@ -503,7 +491,7 @@ function InvoiceTool({ token }: { token: string }) {
     }
   }
 
-  return <Panel title="Facture" subtitle="Apercu avant generation PDF."><form className="stack-form" onSubmit={preview}><label>Patient<input value={patientName} onChange={(event) => setPatientName(event.target.value)} /></label><label>Montant TND<input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><button><CreditCard /> Previsualiser</button>{invoice ? <article className="invoice"><strong>{invoice.number}</strong><span>{invoice.patientName}</span><b>{money(invoice.amountCents)}</b></article> : null}{error ? <output>{error}</output> : null}</form></Panel>;
+  return <Panel title="Facture" subtitle="Apercu avant generation PDF."><form className="stack-form" onSubmit={preview}><label>Patient<input required value={patientName} onChange={(event) => setPatientName(event.target.value)} /></label><label>Montant TND<input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><button><CreditCard /> Previsualiser</button>{invoice ? <article className="invoice"><strong>{invoice.number}</strong><span>{invoice.patientName}</span><b>{money(invoice.amountCents)}</b></article> : null}{error ? <output>{error}</output> : null}</form></Panel>;
 }
 
 function AppointmentTimeline({ appointments }: { appointments: AppointmentSummary[] }) {
