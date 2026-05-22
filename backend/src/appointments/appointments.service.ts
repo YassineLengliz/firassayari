@@ -1,47 +1,74 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PRIMARY_DOCTOR, type AppointmentSummary } from "@medcabinet/shared";
-import { randomUUID } from "crypto";
+import { ensurePrimaryDoctor, PRIMARY_CLINIC_ID } from "../common/cabinet-records";
+import { PrismaService } from "../common/prisma/prisma.service";
 
-const appointments: AppointmentSummary[] = [];
+type CreateAppointmentInput = Omit<AppointmentSummary, "id" | "doctorName" | "doctorShortName"> & {
+  patientPhone?: string;
+};
 
 @Injectable()
 export class AppointmentsService {
-  list(): AppointmentSummary[] {
-    return appointments;
+  constructor(private readonly prisma: PrismaService) {}
+
+  async list(): Promise<AppointmentSummary[]> {
+    await ensurePrimaryDoctor(this.prisma);
+    const appointments = await this.prisma.appointment.findMany({
+      where: { clinicId: PRIMARY_CLINIC_ID },
+      include: { patient: true, doctor: true },
+      orderBy: { startsAt: "asc" }
+    });
+
+    return appointments.map((appointment) => this.summary(appointment));
   }
 
-  create(input: Omit<AppointmentSummary, "id" | "doctorName" | "doctorShortName">): AppointmentSummary {
-    this.assertAvailable(input.startsAt, input.endsAt);
+  async create(input: CreateAppointmentInput): Promise<AppointmentSummary> {
+    await ensurePrimaryDoctor(this.prisma);
+    await this.assertAvailable(input.startsAt, input.endsAt);
+    const patient = await this.patientForAppointment(input.patientName, input.patientPhone);
 
-    const appointment: AppointmentSummary = {
-      id: randomUUID(),
-      ...input,
-      doctorName: PRIMARY_DOCTOR.fullName,
-      doctorShortName: PRIMARY_DOCTOR.shortName
-    };
-    appointments.push(appointment);
-    return appointment;
+    const appointment = await this.prisma.appointment.create({
+      data: {
+        clinicId: PRIMARY_CLINIC_ID,
+        patientId: patient.id,
+        doctorId: PRIMARY_DOCTOR.id,
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt),
+        status: input.status,
+        reason: input.reason
+      },
+      include: { patient: true, doctor: true }
+    });
+
+    return this.summary(appointment);
   }
 
-  move(id: string, input: Pick<AppointmentSummary, "startsAt" | "endsAt">): AppointmentSummary {
-    const appointment = appointments.find((candidate) => candidate.id === id);
-    if (!appointment) throw new NotFoundException("Appointment not found");
+  async move(id: string, input: Pick<AppointmentSummary, "startsAt" | "endsAt">): Promise<AppointmentSummary> {
+    await this.assertExists(id);
+    await this.assertAvailable(input.startsAt, input.endsAt, id);
+    const appointment = await this.prisma.appointment.update({
+      where: { id },
+      data: {
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt)
+      },
+      include: { patient: true, doctor: true }
+    });
 
-    this.assertAvailable(input.startsAt, input.endsAt, id);
-    appointment.startsAt = input.startsAt;
-    appointment.endsAt = input.endsAt;
-    return appointment;
+    return this.summary(appointment);
   }
 
-  remove(id: string): AppointmentSummary {
-    const appointmentIndex = appointments.findIndex((candidate) => candidate.id === id);
-    if (appointmentIndex === -1) throw new NotFoundException("Appointment not found");
+  async remove(id: string): Promise<AppointmentSummary> {
+    await this.assertExists(id);
+    const appointment = await this.prisma.appointment.delete({
+      where: { id },
+      include: { patient: true, doctor: true }
+    });
 
-    const [appointment] = appointments.splice(appointmentIndex, 1);
-    return appointment;
+    return this.summary(appointment);
   }
 
-  private assertAvailable(startsAtValue: string, endsAtValue: string, ignoredId?: string) {
+  private async assertAvailable(startsAtValue: string, endsAtValue: string, ignoredId?: string) {
     const startsAt = new Date(startsAtValue);
     const endsAt = new Date(endsAtValue);
 
@@ -49,13 +76,88 @@ export class AppointmentsService {
       throw new BadRequestException("Appointment end must be after its start");
     }
 
-    const overlaps = appointments.some((appointment) => {
-      if (appointment.id === ignoredId || appointment.status === "CANCELLED") return false;
-      return startsAt < new Date(appointment.endsAt) && endsAt > new Date(appointment.startsAt);
+    const overlaps = await this.prisma.appointment.count({
+      where: {
+        clinicId: PRIMARY_CLINIC_ID,
+        status: { not: "CANCELLED" },
+        ...(ignoredId ? { id: { not: ignoredId } } : {}),
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt }
+      }
     });
 
     if (overlaps) {
-      throw new BadRequestException("Double booking detected for Dr Firas Sayari");
+      throw new BadRequestException("Ce creneau est deja occupe.");
     }
   }
+
+  private async assertExists(id: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, clinicId: PRIMARY_CLINIC_ID },
+      select: { id: true }
+    });
+
+    if (!appointment) throw new NotFoundException("Appointment not found");
+  }
+
+  private async patientForAppointment(patientName: string, patientPhone = "") {
+    const name = splitPatientName(patientName);
+    const existingPatient = await this.prisma.patient.findFirst({
+      where: {
+        clinicId: PRIMARY_CLINIC_ID,
+        firstName: { equals: name.firstName, mode: "insensitive" },
+        lastName: { equals: name.lastName, mode: "insensitive" }
+      }
+    });
+
+    if (existingPatient) {
+      if (patientPhone && !existingPatient.phone) {
+        return this.prisma.patient.update({
+          where: { id: existingPatient.id },
+          data: { phone: patientPhone }
+        });
+      }
+      return existingPatient;
+    }
+
+    return this.prisma.patient.create({
+      data: {
+        clinicId: PRIMARY_CLINIC_ID,
+        firstName: name.firstName,
+        lastName: name.lastName,
+        phone: patientPhone,
+        allergies: [],
+        chronicConditions: []
+      }
+    });
+  }
+
+  private summary(appointment: {
+    id: string;
+    startsAt: Date;
+    endsAt: Date;
+    status: AppointmentSummary["status"];
+    reason: string;
+    patient: { firstName: string; lastName: string };
+    doctor: { fullName: string; displayName: string };
+  }): AppointmentSummary {
+    return {
+      id: appointment.id,
+      patientName: `${appointment.patient.firstName} ${appointment.patient.lastName}`.trim(),
+      doctorName: appointment.doctor.fullName,
+      doctorShortName: appointment.doctor.displayName,
+      startsAt: appointment.startsAt.toISOString(),
+      endsAt: appointment.endsAt.toISOString(),
+      status: appointment.status,
+      reason: appointment.reason
+    };
+  }
+}
+
+function splitPatientName(patientName: string) {
+  const [firstName, ...lastNameParts] = patientName.trim().split(/\s+/);
+  return {
+    firstName: firstName || "Patient",
+    lastName: lastNameParts.join(" ")
+  };
 }

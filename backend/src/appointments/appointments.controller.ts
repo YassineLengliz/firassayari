@@ -83,10 +83,11 @@ export class AppointmentsController {
   request(@Body() dto: RequestAppointmentDto) {
     return this.appointments.create({
       patientName: dto.patientName,
+      patientPhone: dto.phone,
       startsAt: dto.startsAt,
       endsAt: dto.endsAt,
       status: "PENDING",
-      reason: `${dto.reason} | Tel: ${dto.phone}`
+      reason: dto.reason
     });
   }
 }

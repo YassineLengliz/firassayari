@@ -30,6 +30,12 @@ npm run dev:backend
 
 API: `http://localhost:4000/api`
 
+Patients and appointments are stored through Prisma in PostgreSQL. After setting `DATABASE_URL` to the Supabase PostgreSQL connection string, apply the schema once:
+
+```bash
+npm run prisma:push
+```
+
 Demo login:
 
 - `firas@medcabinet.ai` / `demo1234`
@@ -40,7 +46,7 @@ Demo login:
 
 Import this repository as one Vercel project with the project root left at the repository root. `vercel.json` builds the Vite app to `frontend/dist`, keeps SPA routes such as `/admin` on the frontend, and routes `/api/*` into one Nest-backed Vercel Function.
 
-Set Vercel environment variables for `DATABASE_URL`, `JWT_SECRET`, and `OPENAI_API_KEY` when they are used. Keep `VITE_API_URL` unset or blank for Vercel so browser requests stay on the same deployment domain.
+Set Vercel environment variables for `DATABASE_URL`, `JWT_SECRET`, and `OPENAI_API_KEY` when they are used. `DATABASE_URL` must not be blank because patient and appointment writes go to PostgreSQL. Keep `VITE_API_URL` unset or blank for Vercel so browser requests stay on the same deployment domain.
 
 The Vercel API entrypoint is `api/server.ts`; local development still uses the Nest backend command above.
 

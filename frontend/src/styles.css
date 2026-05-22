@@ -591,13 +591,24 @@ output.error,
   background: rgba(20, 118, 93, 0.06);
 }
 
-.cabinet-calendar .fc .fc-daygrid-event {
+.cabinet-calendar .fc .fc-daygrid-event,
+.cabinet-calendar .fc .fc-timegrid-event {
   border: 0;
   border-radius: 6px;
   box-shadow: 0 5px 12px rgba(19, 35, 31, 0.12);
   cursor: pointer;
   margin: 0.14rem 0.2rem;
   padding: 0.22rem 0.34rem;
+}
+
+.cabinet-calendar .fc .fc-timegrid-slot {
+  height: 1.55rem;
+}
+
+.cabinet-calendar .fc .fc-timegrid-axis-cushion,
+.cabinet-calendar .fc .fc-timegrid-slot-label-cushion {
+  color: #64727c;
+  font-size: 0.78rem;
 }
 
 .cabinet-calendar .fc .fc-event-title {

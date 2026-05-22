@@ -16,8 +16,8 @@ import {
   Users
 } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
@@ -316,6 +316,7 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
 
 function AgendaPage({ appointments, patients, token, onChanged }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; token: string; onChanged: () => void }) {
   const [draftDate, setDraftDate] = useState(tomorrowDate());
+  const [draftTime, setDraftTime] = useState("10:00");
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
@@ -345,8 +346,9 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
   }
 
   function pickDate(info: DateClickArg) {
-    setDraftDate(info.dateStr.slice(0, 10));
-    setMessage("Date choisie pour le nouveau rendez-vous.");
+    setDraftDate(dateInput(info.date));
+    setDraftTime(timeInput(info.date));
+    setMessage("Creneau choisi pour le nouveau rendez-vous.");
   }
 
   function selectAppointment(info: EventClickArg) {
@@ -358,15 +360,24 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
       <Panel title="Agenda du cabinet" subtitle="Demandes patients et rendez-vous internes.">
         <div className="cabinet-calendar">
           <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{ left: "title", center: "", right: "today prev,next" }}
-            buttonText={{ today: "Aujourd'hui" }}
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={{ left: "title", center: "", right: "today prev,next timeGridWeek,timeGridDay" }}
+            buttonText={{ today: "Aujourd'hui", week: "Semaine", day: "Jour" }}
+            allDaySlot={false}
+            nowIndicator
+            scrollTime="08:00:00"
+            slotDuration="00:15:00"
+            slotLabelInterval="00:30:00"
+            slotMinTime="07:00:00"
+            slotMaxTime="20:00:00"
             dateClick={pickDate}
             eventClick={selectAppointment}
             eventDrop={moveAppointment}
             editable
+            eventOverlap={false}
             eventDurationEditable={false}
+            slotEventOverlap={false}
             events={appointments.map((appointment) => ({
               id: appointment.id,
               title: appointment.patientName,
@@ -379,7 +390,7 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
         {message ? <output>{message}</output> : null}
       </Panel>
       <section className="agenda-side">
-        <CreateAppointment token={token} onCreated={onChanged} selectedDate={draftDate} />
+        <CreateAppointment token={token} onCreated={onChanged} selectedDate={draftDate} selectedTime={draftTime} />
         <AppointmentDetails appointment={selectedAppointment} patients={patients} token={token} onRemoved={onChanged} />
       </section>
     </section>
@@ -507,11 +518,12 @@ function PatientList({ patients }: { patients: PatientSummary[] }) {
   );
 }
 
-function CreateAppointment({ token, onCreated, selectedDate = tomorrowDate() }: { token: string; onCreated: () => void; selectedDate?: string }) {
-  const [form, setForm] = useState({ patientName: "", date: selectedDate, time: "10:00", reason: "Consultation", status: "CONFIRMED" as AppointmentStatus });
+function CreateAppointment({ token, onCreated, selectedDate = tomorrowDate(), selectedTime = "10:00" }: { token: string; onCreated: () => void; selectedDate?: string; selectedTime?: string }) {
+  const [form, setForm] = useState({ patientName: "", date: selectedDate, time: selectedTime, reason: "Consultation", status: "CONFIRMED" as AppointmentStatus });
   const [message, setMessage] = useState("");
 
   useEffect(() => setForm((current) => ({ ...current, date: selectedDate })), [selectedDate]);
+  useEffect(() => setForm((current) => ({ ...current, time: selectedTime })), [selectedTime]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -655,6 +667,19 @@ function tomorrowDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return date.toISOString().slice(0, 10);
+}
+
+function dateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function timeInput(date: Date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function appointmentDateTime(appointment: AppointmentSummary) {
