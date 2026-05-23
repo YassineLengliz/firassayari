@@ -1,13 +1,13 @@
 # MedCabinet AI Architecture
 
-MedCabinet AI is structured as a SaaS medical cabinet platform centered on Dr Firas Sayari, shown as `Firas .S` in operational UI.
+MedCabinet AI is structured as a SaaS dental cabinet platform centered on Dr Firas Sayari, shown as `Firas .S` in operational UI.
 
 ## Workspaces
 
 - `frontend`: Next.js, TailwindCSS, FullCalendar, Recharts dashboard.
 - `backend`: NestJS API with modules for auth, appointments, patients, consultations, finance, notifications and SaaS admin.
 - `database`: Prisma schema for PostgreSQL multi-clinic data.
-- `ai-service`: speech-to-text and medical NLP provider boundary.
+- `ai-service`: speech-to-text and dental clinical NLP provider boundary.
 - `shared`: common doctor constants and TypeScript contracts.
 
 ## Security Model

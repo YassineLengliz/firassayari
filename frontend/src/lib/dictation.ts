@@ -6,16 +6,16 @@ export function structureMedicalText(rawText: string): StructuredMedicalNote {
     .replace(/\s+/g, " ")
     .trim();
 
-  const hasFever = /fievre|fièvre|temperature|température/i.test(normalized);
-  const hasPain = /douleur|mal|brulure|brûlure/i.test(normalized);
+  const hasSwelling = /gonflement|gonfle|abc[eè]s/i.test(normalized);
+  const hasPain = /douleur|rage de dent|sensible|sensibilite|sensibilité/i.test(normalized);
   const duration = normalized.match(/depuis\s+([0-9]+\s+\w+)/i)?.[1] ?? "duree non precisee";
 
   return {
-    reason: hasPain ? `Douleurs rapportees (${duration})` : `Consultation medicale (${duration})`,
-    symptoms: [hasFever ? "Fievre associee" : "Fievre non documentee", normalized].filter(Boolean),
-    diagnosticHypothesis: hasFever ? "Hypothese infectieuse a confirmer par examen clinique" : "Hypothese a preciser",
-    treatmentPlan: "Examen clinique, constantes, conseils hygieno-dietetiques et reevaluation selon evolution.",
-    prescription: ["Paracetamol si douleur ou fievre", "Hydratation", "Controle si aggravation"],
+    reason: hasPain ? `Douleur dentaire (${duration})` : `Consultation dentaire (${duration})`,
+    symptoms: [hasSwelling ? "Gonflement rapporte" : "Gonflement non documente", normalized].filter(Boolean),
+    diagnosticHypothesis: hasSwelling ? "Infection dentaire a exclure lors de l'examen" : "Diagnostic a preciser",
+    treatmentPlan: "Examen bucco-dentaire, evaluation de la douleur et radiographie si indiquee.",
+    prescription: ["Antalgie selon evaluation clinique", "Conseils d'hygiene bucco-dentaire", "Controle si aggravation"],
     priceCents: 6000
   };
 }

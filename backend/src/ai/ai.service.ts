@@ -9,14 +9,15 @@ export class AiService {
       .replace(/\s+/g, " ")
       .trim();
     const duration = cleanText.match(/depuis\s+([0-9]+\s+\w+)/i)?.[1] ?? "duree non precisee";
-    const fever = /fievre|fièvre|temperature|température/i.test(cleanText);
+    const swelling = /gonflement|gonfle|abc[eè]s/i.test(cleanText);
+    const pain = /douleur|rage de dent|sensible|sensibilite|sensibilité/i.test(cleanText);
 
     return {
-      reason: /ventre|abdominal/i.test(cleanText) ? `Douleurs abdominales (${duration})` : `Motif a confirmer (${duration})`,
-      symptoms: [fever ? "Fievre associee" : "Fievre non documentee", cleanText],
-      diagnosticHypothesis: fever ? "Infection digestive probable, a confirmer par examen clinique" : "Hypothese diagnostique non automatique a valider",
-      treatmentPlan: "Examen clinique, constantes, evaluation de la douleur et consignes de surveillance.",
-      prescription: ["Paracetamol si douleur ou fievre", "Hydratation", "Reconsultation si aggravation"],
+      reason: pain ? `Douleur dentaire (${duration})` : `Motif dentaire a confirmer (${duration})`,
+      symptoms: [swelling ? "Gonflement rapporte" : "Gonflement non documente", cleanText],
+      diagnosticHypothesis: swelling ? "Infection dentaire a exclure lors de l'examen" : "Diagnostic dentaire a confirmer par le praticien",
+      treatmentPlan: "Examen bucco-dentaire, evaluation de la douleur et radiographie si indiquee.",
+      prescription: ["Antalgie selon evaluation clinique", "Conseils d'hygiene bucco-dentaire", "Controle si aggravation"],
       priceCents: 6000
     };
   }

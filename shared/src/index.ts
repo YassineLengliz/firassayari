@@ -2,7 +2,7 @@ export const PRIMARY_DOCTOR = {
   id: "doctor-firas-sayari",
   fullName: "Dr Firas Sayari",
   shortName: "Firas .S",
-  specialty: "Medecine generale"
+  specialty: "Chirurgie dentaire"
 } as const;
 
 export type UserRole = "DOCTOR" | "SECRETARY" | "SAAS_ADMIN";

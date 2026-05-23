@@ -10,7 +10,8 @@ import {
   LogOut,
   Search,
   ShieldCheck,
-  Stethoscope,
+  SmilePlus,
+  Sparkles,
   Trash2,
   UserRoundPlus,
   Users
@@ -62,7 +63,7 @@ function PatientLanding() {
     phone: "",
     date: tomorrowDate(),
     time: "09:00",
-    reason: "Consultation de medecine generale"
+    reason: "Bilan dentaire"
   });
   const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -86,7 +87,7 @@ function PatientLanding() {
         })
       });
       setRequestState("sent");
-      setMessage("Votre demande est enregistree. Le cabinet confirmera le rendez-vous.");
+      setMessage("Votre demande est enregistree. Le cabinet dentaire confirmera le rendez-vous.");
       setForm((current) => ({ ...current, patientName: "", phone: "" }));
     } catch (error) {
       setRequestState("error");
@@ -99,32 +100,38 @@ function PatientLanding() {
       <header className="public-nav">
         <a className="doctor-mark" href="/" aria-label="Accueil Dr Firas Sayari">
           <span>FS</span>
-          <strong>Dr Firas Sayari</strong>
+          <strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong>
         </a>
         <nav aria-label="Navigation publique">
           <a href="#rdv">Rendez-vous</a>
+          <a href="#soins">Soins</a>
           <a href="#cabinet">Cabinet</a>
           <a className="nav-command" href="/admin"><ShieldCheck /> Admin</a>
         </nav>
       </header>
 
       <section className="hero">
-        <img src="/images/dr-firas-hero.png" alt="Consultation au cabinet de Dr Firas Sayari" />
+        <img src="/images/dr-firas-dentiste-hero.png" alt="Consultation dans le cabinet dentaire de Dr Firas Sayari" />
         <div className="hero-shade" />
         <div className="hero-copy">
-          <p className="eyebrow">Medecine generale</p>
-          <h1>Dr Firas Sayari</h1>
-          <p>Un rendez-vous clair, un accueil attentif et un suivi medical organise pour chaque patient.</p>
+          <p className="eyebrow">Cabinet dentaire</p>
+          <h1>Un sourire soigne avec precision.</h1>
+          <p className="hero-lead"><strong>Dr Firas Sayari</strong>, chirurgien-dentiste, vous accueille pour des soins attentifs, expliques et confortables.</p>
           <div className="hero-actions">
             <a href="#rdv"><CalendarCheck /> Prendre rendez-vous</a>
-            <a href="#cabinet" className="quiet-action"><Stethoscope /> Decouvrir le cabinet</a>
+            <a href="#soins" className="quiet-action"><SmilePlus /> Decouvrir les soins</a>
+          </div>
+          <div className="hero-points" aria-label="Engagements du cabinet">
+            <span><ShieldCheck /> Soins rassurants</span>
+            <span><Sparkles /> Hygiene rigoureuse</span>
+            <span><CalendarCheck /> Reservation rapide</span>
           </div>
         </div>
 
         <form id="rdv" className="booking-tool" onSubmit={requestAppointment}>
           <div>
-            <p>Demande de rendez-vous</p>
-            <strong>Choisissez votre creneau</strong>
+            <p>Rendez-vous dentaire</p>
+            <strong>Reservez votre visite</strong>
           </div>
           <label>
             Nom complet
@@ -146,21 +153,41 @@ function PatientLanding() {
           </label>
           <label className="booking-reason">
             Motif
-            <input required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} />
+            <select required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })}>
+              <option>Bilan dentaire</option>
+              <option>Detartrage</option>
+              <option>Douleur ou urgence</option>
+              <option>Soins conservateurs</option>
+              <option>Esthetique du sourire</option>
+            </select>
           </label>
           <button disabled={requestState === "sending"}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Demander le RDV"}</button>
           {message ? <output className={requestState}>{message}</output> : null}
         </form>
       </section>
 
-      <section id="cabinet" className="cabinet-band">
+      <section id="soins" className="cabinet-band">
         <div>
-          <p className="eyebrow">Pour les patients</p>
-          <h2>Une consultation mieux preparee des l'arrivee.</h2>
+          <p className="eyebrow">Nos soins</p>
+          <h2>La sante bucco-dentaire, a chaque etape.</h2>
+          <p className="band-intro">Une approche claire et douce, de la prevention au soulagement d'une douleur.</p>
         </div>
-        <Feature icon={<Stethoscope />} title="Evaluation attentive" text="Consultations de medecine generale avec priorite aux symptomes, antecedents et suivi." />
-        <Feature icon={<CalendarCheck />} title="Agenda lisible" text="Demandes en ligne suivies par le cabinet avant confirmation du creneau." />
-        <Feature icon={<FileText />} title="Suivi organise" text="Dossiers, facturation et notes de consultation centralises cote equipe." />
+        <Feature icon={<SmilePlus />} title="Bilan & prevention" text="Controle dentaire, conseils personnalises et detartrage pour preserver votre sourire." />
+        <Feature icon={<Sparkles />} title="Soins du sourire" text="Traitement des caries et solutions esthetiques discutees avec clarte." />
+        <Feature icon={<CalendarCheck />} title="Douleur & urgence" text="Demandez rapidement un creneau en cas de douleur ou d'inconfort dentaire." />
+      </section>
+
+      <section id="cabinet" className="patient-path">
+        <div className="path-copy">
+          <p className="eyebrow">Le cabinet</p>
+          <h2>Votre visite, simplement organisee.</h2>
+          <p>Une prise en charge dentaire attentive dans un espace moderne, avec un suivi centralise par l'equipe.</p>
+        </div>
+        <div className="path-steps">
+          <article><b>01</b><strong>Demandez</strong><span>Choisissez un motif et un creneau en ligne.</span></article>
+          <article><b>02</b><strong>Confirmez</strong><span>Le cabinet valide votre rendez-vous.</span></article>
+          <article><b>03</b><strong>Souriez</strong><span>Recevez des soins adaptes et expliques.</span></article>
+        </div>
       </section>
     </main>
   );
@@ -209,7 +236,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
 
   return (
     <main className="admin-login">
-      <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari</strong></a>
+      <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong></a>
       <form onSubmit={login}>
         <div>
           <p className="eyebrow">Administration</p>
@@ -263,7 +290,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   return (
     <main className="admin-shell">
       <aside>
-        <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari</strong></a>
+        <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong></a>
         <nav aria-label="Administration">
           {adminPages.map((route) => (
             <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href}>
@@ -495,7 +522,7 @@ function OperationsPanel({ reminders, platform }: { reminders: Reminder[]; platf
     <Panel title="Rappels et securite" subtitle="Evenements operationnels.">
       <div className="reminders">
         {reminders.map((reminder) => <article key={reminder.id}><BellRing /><strong>{reminder.message}</strong><span>{reminder.channel} - {reminder.status} - {reminder.target}</span></article>)}
-        {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} medecin</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
+        {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} dentiste</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
         {!reminders.length && !platform ? <p className="empty">Aucun rappel operationnel.</p> : null}
       </div>
     </Panel>
@@ -595,7 +622,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
     }
   }
 
-  return <Panel title="Consultation IA" subtitle="Structuration de dictee et note medicale."><div className="stack-form"><label>Patient<select value={patientId} onChange={(event) => setPatientId(event.target.value)}>{patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}</select></label><label>Dictee<textarea value={rawDictation} onChange={(event) => setRawDictation(event.target.value)} /></label><div className="inline-actions"><button type="button" onClick={structure}><Activity /> Structurer</button><button type="button" onClick={saveConsultation} disabled={!patientId}><FileText /> Enregistrer</button></div>{note ? <article className="note"><strong>{note.reason}</strong><span>{note.symptoms.join(" | ")}</span><small>{note.treatmentPlan}</small></article> : null}{consultation ? <output>{consultation}</output> : null}</div></Panel>;
+  return <Panel title="Consultation IA" subtitle="Structuration de dictee et note dentaire."><div className="stack-form"><label>Patient<select value={patientId} onChange={(event) => setPatientId(event.target.value)}>{patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}</select></label><label>Dictee<textarea value={rawDictation} onChange={(event) => setRawDictation(event.target.value)} /></label><div className="inline-actions"><button type="button" onClick={structure}><Activity /> Structurer</button><button type="button" onClick={saveConsultation} disabled={!patientId}><FileText /> Enregistrer</button></div>{note ? <article className="note"><strong>{note.reason}</strong><span>{note.symptoms.join(" | ")}</span><small>{note.treatmentPlan}</small></article> : null}{consultation ? <output>{consultation}</output> : null}</div></Panel>;
 }
 
 function InvoiceTool({ token }: { token: string }) {

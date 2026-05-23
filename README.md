@@ -1,6 +1,6 @@
 # MedCabinet AI
 
-Patient appointment site and cabinet workspace for **Dr Firas Sayari** (`Firas .S`) with a French public booking page, a Vite admin frontend, patient management, AI-assisted consultation, dictation post-processing and finance dashboard.
+Dental appointment site and cabinet workspace for **Dr Firas Sayari** (`Firas .S`) with a French public booking page, a Vite admin frontend, patient management, AI-assisted consultation, dictation post-processing and finance dashboard.
 
 ## Run
 
@@ -57,5 +57,5 @@ The Vercel API entrypoint is `api/server.ts`; local development still uses the N
 - `api/server.ts`: single-project Vercel API function.
 - `vercel.json`: Vite output directory and one-domain frontend/API rewrites.
 - `database/prisma/schema.prisma`: PostgreSQL Prisma model.
-- `ai-service/src/index.ts`: provider boundary for Whisper/OpenAI medical NLP.
+- `ai-service/src/index.ts`: provider boundary for Whisper/OpenAI dental clinical NLP.
 - `shared/src/index.ts`: shared roles, appointment contracts and doctor identity.
