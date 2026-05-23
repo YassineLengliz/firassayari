@@ -111,7 +111,7 @@ function PatientLanding() {
       </header>
 
       <section className="hero">
-        <img src="/images/dr-firas-dentiste-hero.png" alt="Consultation dans le cabinet dentaire de Dr Firas Sayari" />
+        <img src="/images/firas-new-hero.png" alt="Dr Firas Sayari accueille un patient dans son cabinet dentaire" />
         <div className="hero-shade" />
         <div className="hero-copy">
           <p className="eyebrow">Cabinet dentaire</p>
