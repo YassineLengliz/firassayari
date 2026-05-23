@@ -131,7 +131,7 @@ function PatientLanding() {
             </div>
           </div>
           <figure className="hero-visual">
-            <img src="/images/firas-new-hero.png" alt="Dr Firas Sayari accueille un patient dans son cabinet dentaire" />
+            <img src="/images/hero2.png" alt="Dr Firas Sayari dans son cabinet dentaire moderne" />
             <figcaption>
               <Sparkles />
               <span><strong>Cabinet moderne</strong>Des soins sereins et soigneusement planifies.</span>
