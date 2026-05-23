@@ -100,7 +100,7 @@ function PatientLanding() {
       <header className="public-nav">
         <a className="doctor-mark" href="/" aria-label="Accueil Dr Firas Sayari">
           <span>FS</span>
-          <strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong>
+          <strong>Dr Firas Sayari<small>Dentiste</small></strong>
         </a>
         <nav aria-label="Navigation publique">
           <a href="#rdv">Rendez-vous</a>
@@ -116,7 +116,7 @@ function PatientLanding() {
         <div className="hero-copy">
           <p className="eyebrow">Cabinet dentaire</p>
           <h1>Un sourire soigne avec precision.</h1>
-          <p className="hero-lead"><strong>Dr Firas Sayari</strong>, chirurgien-dentiste, vous accueille pour des soins attentifs, expliques et confortables.</p>
+          <p className="hero-lead"><strong>Dr Firas Sayari</strong>, dentiste, vous accueille pour des soins attentifs, expliques et confortables.</p>
           <div className="hero-actions">
             <a href="#rdv"><CalendarCheck /> Prendre rendez-vous</a>
             <a href="#soins" className="quiet-action"><SmilePlus /> Decouvrir les soins</a>
@@ -236,7 +236,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
 
   return (
     <main className="admin-login">
-      <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong></a>
+      <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
       <form onSubmit={login}>
         <div>
           <p className="eyebrow">Administration</p>
@@ -290,7 +290,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   return (
     <main className="admin-shell">
       <aside>
-        <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Chirurgien-dentiste</small></strong></a>
+        <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
         <nav aria-label="Administration">
           {adminPages.map((route) => (
             <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href}>
