@@ -1,8 +1,10 @@
 import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type PatientSummary, type StructuredMedicalNote, type UserRole } from "@medcabinet/shared";
 import {
   Activity,
+  ArrowRight,
   BellRing,
   CalendarCheck,
+  Clock3,
   ClipboardPlus,
   CreditCard,
   FileText,
@@ -98,59 +100,77 @@ function PatientLanding() {
   return (
     <main className="site">
       <header className="public-nav">
-        <a className="doctor-mark" href="/" aria-label="Accueil Dr Firas Sayari">
-          <span>FS</span>
-          <strong>Dr Firas Sayari<small>Dentiste</small></strong>
-        </a>
-        <nav aria-label="Navigation publique">
-          <a href="#rdv">Rendez-vous</a>
-          <a href="#soins">Soins</a>
-          <a href="#cabinet">Cabinet</a>
-          <a className="nav-command" href="/admin"><ShieldCheck /> Admin</a>
-        </nav>
+        <div className="nav-shell">
+          <a className="doctor-mark" href="/" aria-label="Accueil Dr Firas Sayari">
+            <span>FS</span>
+            <strong>Dr Firas Sayari<small>Dentiste</small></strong>
+          </a>
+          <nav aria-label="Navigation publique">
+            <a href="#soins">Soins</a>
+            <a href="#cabinet">Cabinet</a>
+            <a href="#rdv" className="appointment-link"><CalendarCheck /> Prendre rendez-vous</a>
+            <a className="nav-command" href="/admin"><ShieldCheck /> Admin</a>
+          </nav>
+        </div>
       </header>
 
       <section className="hero">
-        <img src="/images/firas-new-hero.png" alt="Dr Firas Sayari accueille un patient dans son cabinet dentaire" />
-        <div className="hero-shade" />
-        <div className="hero-copy">
-          <p className="eyebrow">Cabinet dentaire</p>
-          <h1>Un sourire soigne avec precision.</h1>
-          <p className="hero-lead"><strong>Dr Firas Sayari</strong>, dentiste, vous accueille pour des soins attentifs, expliques et confortables.</p>
-          <div className="hero-actions">
-            <a href="#rdv"><CalendarCheck /> Prendre rendez-vous</a>
-            <a href="#soins" className="quiet-action"><SmilePlus /> Decouvrir les soins</a>
+        <div className="hero-shell">
+          <div className="hero-copy">
+            <p className="eyebrow">Cabinet dentaire | Dr Firas Sayari</p>
+            <h1>Votre sourire merite des soins de confiance.</h1>
+            <p className="hero-lead">Des soins dentaires precis et attentifs, dans un cabinet moderne ou chaque traitement est explique simplement.</p>
+            <div className="hero-actions">
+              <a href="#rdv"><CalendarCheck /> Reserver une visite</a>
+              <a href="#soins" className="quiet-action">Voir nos soins <ArrowRight /></a>
+            </div>
+            <div className="hero-points" aria-label="Engagements du cabinet">
+              <span><ShieldCheck /> Hygiene rigoureuse</span>
+              <span><Clock3 /> Creneaux rapides</span>
+              <span><SmilePlus /> Suivi personnalise</span>
+            </div>
           </div>
-          <div className="hero-points" aria-label="Engagements du cabinet">
-            <span><ShieldCheck /> Soins rassurants</span>
-            <span><Sparkles /> Hygiene rigoureuse</span>
-            <span><CalendarCheck /> Reservation rapide</span>
+          <figure className="hero-visual">
+            <img src="/images/firas-new-hero.png" alt="Dr Firas Sayari accueille un patient dans son cabinet dentaire" />
+            <figcaption>
+              <Sparkles />
+              <span><strong>Cabinet moderne</strong>Des soins sereins et soigneusement planifies.</span>
+            </figcaption>
+          </figure>
+        </div>
+        <div className="confidence-bar" aria-label="Services principaux">
+          <article><strong>Bilan complet</strong><span>Prevention et conseils</span></article>
+          <article><strong>Soins conservateurs</strong><span>Confort et precision</span></article>
+          <article><strong>Urgences dentaires</strong><span>Demande de creneau rapide</span></article>
+        </div>
+      </section>
+
+      <section id="rdv" className="booking-section">
+        <div className="booking-intro">
+          <p className="eyebrow">Prendre rendez-vous</p>
+          <h2>Planifiez votre consultation en quelques instants.</h2>
+          <p>Indiquez le soin recherche et le creneau souhaite. Le cabinet vous contacte pour confirmer votre visite.</p>
+          <div className="booking-note">
+            <Clock3 />
+            <span><strong>Consultations sur rendez-vous</strong>Choisissez un creneau disponible du lundi au vendredi.</span>
           </div>
         </div>
 
-        <form id="rdv" className="booking-tool" onSubmit={requestAppointment}>
+        <form className="booking-tool" onSubmit={requestAppointment}>
           <div>
             <p>Rendez-vous dentaire</p>
-            <strong>Reservez votre visite</strong>
+            <strong>Vos informations</strong>
           </div>
-          <label>
-            Nom complet
-            <input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} placeholder="Votre nom" />
-          </label>
-          <label>
-            Telephone
-            <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+216 ..." />
-          </label>
-          <label>
-            Date
-            <input required type="date" value={form.date} min={tomorrowDate()} onChange={(event) => setForm({ ...form, date: event.target.value })} />
-          </label>
-          <label>
-            Heure
-            <select value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })}>
-              {["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"].map((time) => <option key={time}>{time}</option>)}
-            </select>
-          </label>
+          <div className="booking-pair">
+            <label>
+              Nom complet
+              <input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} placeholder="Votre nom" />
+            </label>
+            <label>
+              Telephone
+              <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+216 ..." />
+            </label>
+          </div>
           <label className="booking-reason">
             Motif
             <select required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })}>
@@ -161,20 +181,34 @@ function PatientLanding() {
               <option>Esthetique du sourire</option>
             </select>
           </label>
-          <button disabled={requestState === "sending"}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Demander le RDV"}</button>
+          <div className="booking-pair">
+            <label>
+              Date
+              <input required type="date" value={form.date} min={tomorrowDate()} onChange={(event) => setForm({ ...form, date: event.target.value })} />
+            </label>
+            <label>
+              Heure
+              <select value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })}>
+                {["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"].map((time) => <option key={time}>{time}</option>)}
+              </select>
+            </label>
+          </div>
+          <button disabled={requestState === "sending"}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Envoyer ma demande"}</button>
           {message ? <output className={requestState}>{message}</output> : null}
         </form>
       </section>
 
       <section id="soins" className="cabinet-band">
-        <div>
+        <div className="section-heading">
           <p className="eyebrow">Nos soins</p>
-          <h2>La sante bucco-dentaire, a chaque etape.</h2>
-          <p className="band-intro">Une approche claire et douce, de la prevention au soulagement d'une douleur.</p>
+          <h2>Des solutions pour proteger et valoriser votre sourire.</h2>
+          <p className="band-intro">Une approche douce, de la prevention au soulagement d'une douleur dentaire.</p>
         </div>
-        <Feature icon={<SmilePlus />} title="Bilan & prevention" text="Controle dentaire, conseils personnalises et detartrage pour preserver votre sourire." />
-        <Feature icon={<Sparkles />} title="Soins du sourire" text="Traitement des caries et solutions esthetiques discutees avec clarte." />
-        <Feature icon={<CalendarCheck />} title="Douleur & urgence" text="Demandez rapidement un creneau en cas de douleur ou d'inconfort dentaire." />
+        <div className="service-cards">
+          <Feature icon={<SmilePlus />} title="Bilan & prevention" text="Controle dentaire, conseils personnalises et detartrage pour preserver votre sourire." />
+          <Feature icon={<Sparkles />} title="Soins du sourire" text="Traitement des caries et solutions esthetiques discutees avec clarte." />
+          <Feature icon={<CalendarCheck />} title="Douleur & urgence" text="Demandez rapidement un creneau en cas de douleur ou d'inconfort dentaire." />
+        </div>
       </section>
 
       <section id="cabinet" className="patient-path">
