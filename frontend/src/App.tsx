@@ -349,8 +349,8 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
           <p className="eyebrow">Administration</p>
           <h1>Acces cabinet</h1>
         </div>
-        <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        <label>Email<input autoComplete="username" name="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+        <label>Mot de passe<input autoComplete="current-password" name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
         <button><LogIn /> Connexion</button>
         {error ? <output className="error">{error}</output> : null}
       </form>

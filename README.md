@@ -59,6 +59,8 @@ Import this repository as one Vercel project with the project root left at the r
 
 Set Vercel environment variables for `DATABASE_URL`, `JWT_SECRET`, and `OPENAI_API_KEY` when they are used. `DATABASE_URL` must not be blank because patient and appointment writes go to PostgreSQL. Keep `VITE_API_URL` unset or blank for Vercel so browser requests stay on the same deployment domain.
 
+For Supabase transaction-pooler connections (port `6543`), `DATABASE_URL` should include `pgbouncer=true&connection_limit=1`; this prevents Prisma prepared-statement collisions in serverless functions. The Vercel runtime also appends these parameters when they are absent.
+
 The Vercel build generates the Prisma client but does not run database migrations. Keeping migrations out of the build prevents deployments from waiting on a production database connection; run `npm run prisma:migrate:deploy` as a separate release operation when the schema changes.
 
 The Vercel API entrypoint is `api/server.ts`; local development still uses the Nest backend command above.
