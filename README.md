@@ -42,6 +42,11 @@ For committed Prisma migrations, deploy them explicitly before or after a releas
 npm run prisma:migrate:deploy
 ```
 
+To initialize a fresh Supabase project from the SQL Editor instead, run these files in order:
+
+1. `database/prisma/migrations/20260522222000_init/migration.sql` creates the tables, enums and indexes.
+2. `database/supabase/bootstrap.sql` inserts the fixed cabinet and dentist records used by appointments. It can be run again safely.
+
 Demo login:
 
 - `firas@medcabinet.ai` / `demo1234`
@@ -65,5 +70,6 @@ The Vercel API entrypoint is `api/server.ts`; local development still uses the N
 - `api/server.ts`: single-project Vercel API function.
 - `vercel.json`: Vite output directory and one-domain frontend/API rewrites.
 - `database/prisma/schema.prisma`: PostgreSQL Prisma model.
+- `database/supabase/bootstrap.sql`: idempotent Supabase cabinet and dentist bootstrap records.
 - `ai-service/src/index.ts`: provider boundary for Whisper/OpenAI dental clinical NLP.
 - `shared/src/index.ts`: shared roles, appointment contracts and doctor identity.

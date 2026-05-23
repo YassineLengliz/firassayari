@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { IsDateString, IsIn, IsString } from "class-validator";
 import type { AppointmentStatus } from "@medcabinet/shared";
 import { Roles } from "../auth/roles.decorator";
@@ -47,9 +47,22 @@ class MoveAppointmentDto {
   endsAt!: string;
 }
 
+class PublicAvailabilityDto {
+  @IsDateString()
+  from!: string;
+
+  @IsDateString()
+  to!: string;
+}
+
 @Controller("appointments")
 export class AppointmentsController {
   constructor(private readonly appointments: AppointmentsService) {}
+
+  @Get("availability")
+  availability(@Query() dto: PublicAvailabilityDto) {
+    return this.appointments.busyPeriods(dto.from, dto.to);
+  }
 
   @Get()
   @UseGuards(RbacGuard)

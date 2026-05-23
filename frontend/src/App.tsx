@@ -1,4 +1,4 @@
-import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type PatientSummary, type StructuredMedicalNote, type UserRole } from "@medcabinet/shared";
+import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type PatientSummary, type PublicBusyPeriod, type StructuredMedicalNote, type UserRole } from "@medcabinet/shared";
 import {
   Activity,
   ArrowRight,
@@ -27,6 +27,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const savedTokenKey = "firassayari-token";
 const savedUserKey = "firassayari-user";
+const appointmentTimes = ["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"];
 
 type SessionUser = {
   email: string;
@@ -69,9 +70,57 @@ function PatientLanding() {
   });
   const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [busyPeriods, setBusyPeriods] = useState<PublicBusyPeriod[]>([]);
+  const [availabilityState, setAvailabilityState] = useState<"loading" | "ready" | "error">("loading");
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const from = new Date(`${form.date}T00:00:00`);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+    setAvailabilityState("loading");
+
+    api<PublicBusyPeriod[]>(`/api/appointments/availability?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
+      .then((periods) => {
+        if (!active) return;
+        setBusyPeriods(periods);
+        setAvailabilityState("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setBusyPeriods([]);
+        setAvailabilityState("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [availabilityVersion, form.date]);
+
+  const appointmentSlots = useMemo(() => appointmentTimes.map((time) => {
+    const startsAt = new Date(`${form.date}T${time}`);
+    const endsAt = new Date(startsAt.getTime() + 30 * 60_000);
+    return {
+      time,
+      available: !busyPeriods.some((period) => new Date(period.startsAt) < endsAt && new Date(period.endsAt) > startsAt)
+    };
+  }), [busyPeriods, form.date]);
+  const selectedSlot = appointmentSlots.find((slot) => slot.time === form.time);
+
+  useEffect(() => {
+    if (availabilityState !== "ready" || selectedSlot?.available) return;
+    const firstAvailable = appointmentSlots.find((slot) => slot.available);
+    if (firstAvailable) setForm((current) => ({ ...current, time: firstAvailable.time }));
+  }, [appointmentSlots, availabilityState, selectedSlot?.available]);
 
   async function requestAppointment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (availabilityState !== "ready" || !selectedSlot?.available) {
+      setRequestState("error");
+      setMessage("Veuillez selectionner un creneau disponible.");
+      return;
+    }
     setRequestState("sending");
     setMessage("");
     const startsAt = new Date(`${form.date}T${form.time}`);
@@ -91,6 +140,7 @@ function PatientLanding() {
       setRequestState("sent");
       setMessage("Votre demande est enregistree. Le cabinet dentaire confirmera le rendez-vous.");
       setForm((current) => ({ ...current, patientName: "", phone: "" }));
+      setAvailabilityVersion((value) => value + 1);
     } catch (error) {
       setRequestState("error");
       setMessage(readError(error));
@@ -156,46 +206,69 @@ function PatientLanding() {
           </div>
         </div>
 
-        <form className="booking-tool" onSubmit={requestAppointment}>
-          <div>
-            <p>Rendez-vous dentaire</p>
-            <strong>Vos informations</strong>
-          </div>
-          <div className="booking-pair">
-            <label>
-              Nom complet
-              <input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} placeholder="Votre nom" />
-            </label>
-            <label>
-              Telephone
-              <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+216 ..." />
-            </label>
-          </div>
-          <label className="booking-reason">
-            Motif
-            <select required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })}>
-              <option>Bilan dentaire</option>
-              <option>Detartrage</option>
-              <option>Douleur ou urgence</option>
-              <option>Soins conservateurs</option>
-              <option>Esthetique du sourire</option>
-            </select>
-          </label>
-          <div className="booking-pair">
-            <label>
-              Date
-              <input required type="date" value={form.date} min={tomorrowDate()} onChange={(event) => setForm({ ...form, date: event.target.value })} />
-            </label>
-            <label>
-              Heure
-              <select value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })}>
-                {["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"].map((time) => <option key={time}>{time}</option>)}
+        <div className="booking-workspace">
+          <form className="booking-tool" onSubmit={requestAppointment}>
+            <div>
+              <p>Rendez-vous dentaire</p>
+              <strong>Vos informations</strong>
+            </div>
+            <div className="booking-pair">
+              <label>
+                Nom complet
+                <input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} placeholder="Votre nom" />
+              </label>
+              <label>
+                Telephone
+                <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+216 ..." />
+              </label>
+            </div>
+            <label className="booking-reason">
+              Motif
+              <select required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })}>
+                <option>Bilan dentaire</option>
+                <option>Detartrage</option>
+                <option>Douleur ou urgence</option>
+                <option>Soins conservateurs</option>
+                <option>Esthetique du sourire</option>
               </select>
             </label>
-          </div>
-          <button disabled={requestState === "sending"}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Envoyer ma demande"}</button>
-          {message ? <output className={requestState}>{message}</output> : null}
-        </form>
+            <label>
+              Date souhaitee
+              <input required type="date" value={form.date} min={tomorrowDate()} onChange={(event) => setForm({ ...form, date: event.target.value })} />
+            </label>
+            <div className="selected-appointment">
+              <CalendarCheck />
+              <span><small>Creneau selectionne</small><strong>{readableDate(form.date)} a {form.time}</strong></span>
+            </div>
+            <button disabled={requestState === "sending" || availabilityState !== "ready" || !selectedSlot?.available}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Envoyer ma demande"}</button>
+            {message ? <output className={requestState}>{message}</output> : null}
+          </form>
+
+          <aside className="availability-board" aria-live="polite">
+            <header>
+              <p className="eyebrow">Agenda disponible</p>
+              <h3>{readableDate(form.date)}</h3>
+              <span>Creneaux de 30 minutes</span>
+            </header>
+            {availabilityState === "error" ? <p className="availability-error">Impossible de charger les disponibilites pour le moment.</p> : (
+              <div className="slot-grid" aria-label="Creneaux disponibles">
+                {appointmentSlots.map((slot) => (
+                  <button
+                    className={`${slot.available ? "available" : "busy"} ${form.time === slot.time ? "selected" : ""}`}
+                    disabled={availabilityState === "loading" || !slot.available}
+                    key={slot.time}
+                    onClick={() => setForm({ ...form, time: slot.time })}
+                    type="button"
+                  >
+                    <strong>{slot.time}</strong>
+                    <small>{availabilityState === "loading" ? "..." : slot.available ? "Disponible" : "Occupe"}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="availability-legend"><i /> Disponible <i className="occupied" /> Occupe</p>
+          </aside>
+        </div>
       </section>
 
       <section id="soins" className="cabinet-band">
@@ -727,7 +800,7 @@ function money(cents = 0) {
 function tomorrowDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
+  return dateInput(date);
 }
 
 function dateInput(date: Date) {
@@ -735,6 +808,10 @@ function dateInput(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function readableDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
 function timeInput(date: Date) {

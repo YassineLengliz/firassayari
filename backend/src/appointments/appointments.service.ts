@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { PRIMARY_DOCTOR, type AppointmentSummary } from "@medcabinet/shared";
+import { PRIMARY_DOCTOR, type AppointmentSummary, type PublicBusyPeriod } from "@medcabinet/shared";
 import { ensurePrimaryDoctor, PRIMARY_CLINIC_ID } from "../common/cabinet-records";
 import { PrismaService } from "../common/prisma/prisma.service";
 
@@ -10,6 +10,31 @@ type CreateAppointmentInput = Omit<AppointmentSummary, "id" | "doctorName" | "do
 @Injectable()
 export class AppointmentsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async busyPeriods(fromValue: string, toValue: string): Promise<PublicBusyPeriod[]> {
+    const from = new Date(fromValue);
+    const to = new Date(toValue);
+
+    if (to <= from || to.getTime() - from.getTime() > 7 * 24 * 60 * 60_000) {
+      throw new BadRequestException("Availability range must be between one minute and seven days.");
+    }
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        clinicId: PRIMARY_CLINIC_ID,
+        status: { not: "CANCELLED" },
+        startsAt: { lt: to },
+        endsAt: { gt: from }
+      },
+      select: { startsAt: true, endsAt: true },
+      orderBy: { startsAt: "asc" }
+    });
+
+    return appointments.map(({ startsAt, endsAt }) => ({
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString()
+    }));
+  }
 
   async list(): Promise<AppointmentSummary[]> {
     await ensurePrimaryDoctor(this.prisma);

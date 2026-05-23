@@ -29,6 +29,11 @@ export interface AppointmentSummary {
   reason: string;
 }
 
+export interface PublicBusyPeriod {
+  startsAt: string;
+  endsAt: string;
+}
+
 export interface StructuredMedicalNote {
   reason: string;
   symptoms: string[];
