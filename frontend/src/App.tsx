@@ -72,7 +72,7 @@ type BrowserSpeechRecognition = {
   onend: (() => void) | null;
   onerror: ((event: RecognitionErrorEvent) => void) | null;
   onresult: ((event: RecognitionEvent) => void) | null;
-  start: () => void;
+  start: (audioTrack?: MediaStreamTrack) => void;
   stop: () => void;
 };
 
@@ -776,16 +776,62 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus>("idle");
   const [speechMessage, setSpeechMessage] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState("");
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const dictationBeforeSpeechRef = useRef("");
 
   useEffect(() => {
     if (!patientId && patients[0]) setPatientId(patients[0].id);
   }, [patientId, patients]);
 
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+  useEffect(() => {
+    const mediaDevices = navigator.mediaDevices;
+    if (!mediaDevices?.enumerateDevices) return;
 
-  function toggleRecording() {
+    void refreshMicrophones(false);
+    const onDeviceChange = () => void refreshMicrophones(false);
+    mediaDevices.addEventListener("devicechange", onDeviceChange);
+    return () => mediaDevices.removeEventListener("devicechange", onDeviceChange);
+  }, []);
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+    stopInputStream();
+  }, []);
+
+  function stopInputStream() {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
+
+  async function refreshMicrophones(requestPermission: boolean) {
+    if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUserMedia) {
+      setSpeechStatus("unsupported");
+      setSpeechMessage("La selection du microphone n'est pas disponible dans ce navigateur.");
+      return;
+    }
+
+    let permissionStream: MediaStream | null = null;
+    try {
+      if (requestPermission) permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "audioinput");
+      setMicrophones(inputs);
+      setSelectedMicrophoneId((current) => current && !inputs.some((device) => device.deviceId === current) ? "" : current);
+      if (requestPermission) {
+        setSpeechStatus("idle");
+        setSpeechMessage(inputs.length ? "Microphones disponibles. Selectionnez celui a utiliser pour la dictee." : "Aucun microphone detecte.");
+      }
+    } catch {
+      setSpeechStatus("error");
+      setSpeechMessage("Acces au microphone refuse. Autorisez le microphone pour voir et selectionner vos appareils.");
+    } finally {
+      permissionStream?.getTracks().forEach((track) => track.stop());
+    }
+  }
+
+  async function toggleRecording() {
     if (speechStatus === "listening") {
       recognitionRef.current?.stop();
       return;
@@ -826,19 +872,34 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
     };
     recognition.onend = () => {
       recognitionRef.current = null;
+      stopInputStream();
       setSpeechStatus((current) => current === "error" ? current : "idle");
       setInterimTranscript("");
     };
 
     try {
-      recognition.start();
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("media-devices-unavailable");
+      }
+      const inputStream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedMicrophoneId ? { deviceId: { exact: selectedMicrophoneId } } : true
+      });
+      const audioTrack = inputStream.getAudioTracks()[0];
+      if (!audioTrack) {
+        inputStream.getTracks().forEach((track) => track.stop());
+        throw new Error("missing-audio-track");
+      }
+      mediaStreamRef.current = inputStream;
+      await refreshMicrophones(false);
+      recognition.start(audioTrack);
       setSpeechStatus("listening");
       setSpeechMessage("");
       setInterimTranscript("");
     } catch {
       recognitionRef.current = null;
+      stopInputStream();
       setSpeechStatus("error");
-      setSpeechMessage("Impossible de demarrer le microphone. Verifiez son autorisation dans le navigateur.");
+      setSpeechMessage("Impossible de demarrer ce microphone. Verifiez son autorisation ou selectionnez un autre appareil.");
     }
   }
 
@@ -884,12 +945,28 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
             onChange={(event) => setRawDictation(event.target.value)}
           />
         </label>
+        <div className="microphone-picker">
+          <label>
+            Microphone
+            <select disabled={listening} value={selectedMicrophoneId} onChange={(event) => setSelectedMicrophoneId(event.target.value)}>
+              <option value="">Microphone par defaut</option>
+              {microphones.map((device, index) => (
+                <option value={device.deviceId} key={device.deviceId}>
+                  {device.label || `Microphone ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="microphone-command" disabled={listening} type="button" onClick={() => void refreshMicrophones(true)}>
+            <Mic /> Autoriser / actualiser
+          </button>
+        </div>
         <div className="dictation-recorder">
-          <button className={listening ? "recording-command" : undefined} type="button" onClick={toggleRecording}>
+          <button className={listening ? "recording-command" : undefined} type="button" onClick={() => void toggleRecording()}>
             {listening ? <Square /> : <Mic />}
             {listening ? "Arreter" : "Dicter la consultation"}
           </button>
-          <p>La reconnaissance vocale est fournie par votre navigateur; verifiez le texte avant enregistrement.</p>
+          <p>La dictee utilise le microphone selectionne; verifiez le texte avant enregistrement.</p>
         </div>
         {interimTranscript ? <p className="live-transcript"><strong>Ecoute :</strong> {interimTranscript}</p> : null}
         {speechMessage ? <output className={speechStatus === "idle" || listening ? undefined : "error"}>{speechMessage}</output> : null}

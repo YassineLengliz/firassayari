@@ -1361,6 +1361,24 @@ output.error,
   width: 0.48rem;
 }
 
+.microphone-picker {
+  align-items: end;
+  background: var(--mist);
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  padding: 0.7rem;
+}
+
+.microphone-picker .microphone-command {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--leaf-deep);
+  white-space: nowrap;
+}
+
 .dictation-recorder {
   align-items: center;
   display: flex;
@@ -1604,7 +1622,8 @@ output.error,
   }
 
   .booking-pair,
-  .form-pair {
+  .form-pair,
+  .microphone-picker {
     grid-template-columns: 1fr;
   }
 
