@@ -185,7 +185,7 @@ function PatientLanding() {
       <header className="public-nav">
         <div className="nav-shell">
           <a className="doctor-mark" href="/" aria-label="Accueil Dr Firas Sayari">
-            <span>FS</span>
+            <BrandLogo />
             <strong>Dr Firas Sayari<small>Dentiste</small></strong>
           </a>
           <nav aria-label="Navigation publique">
@@ -409,7 +409,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
 
   return (
     <main className="admin-login">
-      <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
+      <a className="doctor-mark" href="/"><BrandLogo /><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
       <form onSubmit={login}>
         <div>
           <p className="eyebrow">Administration</p>
@@ -463,7 +463,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   return (
     <main className="admin-shell">
       <aside>
-        <a className="doctor-mark" href="/"><span>FS</span><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
+        <a className="doctor-mark" href="/"><BrandLogo /><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
         <nav aria-label="Administration">
           {adminPages.map((route) => (
             <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href}>
@@ -939,6 +939,10 @@ function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string
 
 function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return <article className="feature"><span>{icon}</span><h3>{title}</h3><p>{text}</p></article>;
+}
+
+function BrandLogo() {
+  return <span className="brand-logo" aria-hidden="true"><img src="/images/logo.png" alt="" /></span>;
 }
 
 function Status({ value }: { value: AppointmentStatus }) {

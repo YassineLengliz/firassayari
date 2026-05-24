@@ -119,16 +119,23 @@ textarea {
   min-width: max-content;
 }
 
-.doctor-mark span {
-  background: linear-gradient(145deg, var(--teal), var(--leaf-deep));
-  border-radius: 13px;
-  color: #fff;
-  display: grid;
-  font-size: 0.82rem;
-  font-weight: 900;
-  height: 2.5rem;
-  place-items: center;
-  width: 2.5rem;
+.doctor-mark .brand-logo {
+  display: block;
+  height: 3.2rem;
+  overflow: hidden;
+  position: relative;
+  width: 3.4rem;
+}
+
+.doctor-mark .brand-logo img {
+  display: block;
+  height: 5.3rem;
+  left: 50%;
+  max-width: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8rem;
 }
 
 .doctor-mark strong {
@@ -938,9 +945,8 @@ output.error,
   top: 0;
 }
 
-.admin-shell aside .doctor-mark span {
-  background: #d6eee5;
-  color: var(--leaf-deep);
+.admin-shell aside .doctor-mark .brand-logo img {
+  filter: brightness(1.12);
 }
 
 .admin-shell aside .doctor-mark small {
