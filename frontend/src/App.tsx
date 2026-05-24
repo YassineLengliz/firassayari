@@ -359,7 +359,6 @@ function PatientLanding() {
             src="https://www.openstreetmap.org/export/embed.html?bbox=10.9864%2C36.7767%2C10.9999%2C36.7850&amp;layer=mapnik&amp;marker=36.7808512%2C10.9931998"
             title="Localisation du cabinet Dr Firas Sayari"
           />
-          <p>Plan fourni par OpenStreetMap, sans cle API requise.</p>
         </div>
       </section>
     </main>

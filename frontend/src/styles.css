@@ -882,17 +882,9 @@ output.error,
   border: 0;
   border-radius: 20px;
   display: block;
-  height: calc(100% - 2.4rem);
+  height: 100%;
   min-height: 24rem;
   width: 100%;
-}
-
-.location-map p {
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 2.4rem;
-  margin: 0;
-  padding: 0 0.5rem;
 }
 
 .admin-login {
