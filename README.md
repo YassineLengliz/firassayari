@@ -47,6 +47,8 @@ To initialize a fresh Supabase project from the SQL Editor instead, run these fi
 1. `database/prisma/migrations/20260522222000_init/migration.sql` creates the tables, enums and indexes.
 2. `database/supabase/bootstrap.sql` inserts the fixed cabinet and dentist records used by appointments. It can be run again safely.
 
+The existing initial schema already contains the `Consultation` and `Invoice` tables used for patient follow-up and finance tracking. No additional SQL migration is required for the admin workflow: confirming an appointment records a paid 40 TND confirmation entry once, and saved dictations are persisted as consultations.
+
 Demo login:
 
 - `firas@medcabinet.ai` / `demo1234`

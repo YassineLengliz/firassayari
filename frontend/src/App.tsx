@@ -1,9 +1,10 @@
-import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type PatientSummary, type PublicBusyPeriod, type StructuredMedicalNote, type UserRole } from "@medcabinet/shared";
+import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type ConsultationSummary, type PatientDetails, type PatientSummary, type PublicBusyPeriod, type StructuredMedicalNote, type UserRole } from "@medcabinet/shared";
 import {
   Activity,
   ArrowRight,
   BellRing,
   CalendarCheck,
+  CheckCircle2,
   Clock3,
   ClipboardPlus,
   CreditCard,
@@ -19,12 +20,14 @@ import {
   Square,
   Trash2,
   UserRoundPlus,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
+import frLocale from "@fullcalendar/core/locales/fr";
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -49,6 +52,7 @@ type FinanceSummary = {
 type Reminder = { id: string; channel: string; target: string; status: string; message: string };
 type PlatformStats = { clinics: number; activeSubscriptions: number; doctors: number; monthlyRecurringRevenueCents: number; auditEvents24h: number };
 type InvoicePreview = { number: string; patientName: string; amountCents: number; pdfStatus: string };
+type FinanceActivity = { id: string; number: string; patientName: string; amountCents: number; paidAt: string | null; paymentMethod: string | null; createdAt: string };
 type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
 type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
 
@@ -86,7 +90,7 @@ const adminPages: Array<{ page: AdminPage; href: string; label: string; icon: Re
   { page: "agenda", href: "/admin/agenda", label: "Agenda", icon: <CalendarCheck /> },
   { page: "patients", href: "/admin/patients", label: "Patients", icon: <Users /> },
   { page: "consultations", href: "/admin/consultations", label: "Consultations", icon: <FileText /> },
-  { page: "finance", href: "/admin/finance", label: "Finance", icon: <CreditCard /> }
+  { page: "finance", href: "/admin/finance", label: "Finances", icon: <CreditCard /> }
 ];
 
 export function App() {
@@ -412,7 +416,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
       <form onSubmit={login}>
         <div>
           <p className="eyebrow">Administration</p>
-          <h1>Acces cabinet</h1>
+          <h1>Accès cabinet</h1>
         </div>
         <label>Email<input autoComplete="username" name="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Mot de passe<input autoComplete="current-password" name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
@@ -427,6 +431,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   const [patients, setPatients] = useState<PatientSummary[]>([]);
   const [appointments, setAppointments] = useState<AppointmentSummary[]>([]);
   const [finance, setFinance] = useState<FinanceSummary | null>(null);
+  const [financeActivity, setFinanceActivity] = useState<FinanceActivity[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [platform, setPlatform] = useState<PlatformStats | null>(null);
   const [search, setSearch] = useState("");
@@ -439,12 +444,14 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
       api<AppointmentSummary[]>("/api/appointments", options),
       api<PatientSummary[]>(`/api/patients${search ? `?search=${encodeURIComponent(search)}` : ""}`, options),
       api<FinanceSummary>("/api/finance/monthly-summary", options),
+      api<FinanceActivity[]>("/api/finance/activity", options),
       api<Reminder[]>("/api/notifications/reminders", options)
     ])
-      .then(([nextAppointments, nextPatients, nextFinance, nextReminders]) => {
+      .then(([nextAppointments, nextPatients, nextFinance, nextFinanceActivity, nextReminders]) => {
         setAppointments(nextAppointments);
         setPatients(nextPatients);
         setFinance(nextFinance);
+        setFinanceActivity(nextFinanceActivity);
         setReminders(nextReminders);
       })
       .catch((error) => setNotice(readError(error)));
@@ -477,7 +484,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
       <section className="workspace">
         <header>
           <div>
-            <p className="eyebrow">{user.role.replaceAll("_", " ")}</p>
+            <p className="eyebrow">{roleLabel(user.role)}</p>
             <h1>{title}</h1>
             <span>Bonjour {user.displayName}</span>
           </div>
@@ -485,10 +492,10 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
         {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} /> : null}
-        {page === "agenda" ? <AgendaPage appointments={appointments} patients={patients} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
-        {page === "patients" ? <PatientsPage patients={patients} token={token} onCreated={() => setRefreshId((value) => value + 1)} /> : null}
-        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} /> : null}
-        {page === "finance" ? <FinancePage token={token} finance={finance} reminders={reminders} platform={platform} /> : null}
+        {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
   );
@@ -498,13 +505,13 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
   return (
     <div className="admin-page">
       <section className="metrics">
-        <Metric icon={<CalendarCheck />} label="Rendez-vous" value={String(appointments.length)} detail={`${pending} demande(s) en attente`} />
-        <Metric icon={<Users />} label="Patients visibles" value={String(patients.length)} detail="Dossiers disponibles" />
+        <Metric icon={<CalendarCheck />} label="Rendez-vous" value={String(appointments.length)} detail={`${pending} demande(s) à confirmer`} />
+        <Metric icon={<Users />} label="Patients" value={String(patients.length)} detail="Dossiers disponibles" />
         <Metric icon={<CreditCard />} label="Revenu du mois" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
         <Metric icon={<BellRing />} label="Rappels" value={String(reminders.length)} detail="SMS et email" />
       </section>
       <section className="admin-grid">
-        <Panel title="Prochains rendez-vous" subtitle="Apercu de l'agenda du cabinet.">
+        <Panel title="Prochains rendez-vous" subtitle="Aperçu de l'agenda du cabinet.">
           <AppointmentTimeline appointments={appointments.slice(0, 5)} />
         </Panel>
         <OperationsPanel reminders={reminders} platform={platform} />
@@ -513,12 +520,14 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
   );
 }
 
-function AgendaPage({ appointments, patients, token, onChanged }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; token: string; onChanged: () => void }) {
+function AgendaPage({ appointments, token, onChanged }: { appointments: AppointmentSummary[]; token: string; onChanged: () => void }) {
   const [draftDate, setDraftDate] = useState(tomorrowDate());
   const [draftTime, setDraftTime] = useState("10:00");
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
+  const calendarAppointments = appointments.filter((appointment) => appointment.status === "CONFIRMED" || appointment.status === "COMPLETED");
+  const pendingAppointments = appointments.filter((appointment) => appointment.status === "PENDING");
 
   useEffect(() => {
     if (selectedId && !selectedAppointment) setSelectedId("");
@@ -556,10 +565,11 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
 
   return (
     <section className="admin-page agenda-page">
-      <Panel title="Agenda du cabinet" subtitle="Demandes patients et rendez-vous internes.">
+          <Panel title="Agenda du cabinet" subtitle="Rendez-vous confirmés et consultations terminées.">
         <div className="cabinet-calendar">
           <FullCalendar
             plugins={[timeGridPlugin, interactionPlugin]}
+            locale={frLocale}
             initialView="timeGridWeek"
             headerToolbar={{ left: "title", center: "", right: "today prev,next timeGridWeek,timeGridDay" }}
             buttonText={{ today: "Aujourd'hui", week: "Semaine", day: "Jour" }}
@@ -577,9 +587,9 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
             eventOverlap={false}
             eventDurationEditable={false}
             slotEventOverlap={false}
-            events={appointments.map((appointment) => ({
+            events={calendarAppointments.map((appointment) => ({
               id: appointment.id,
-              title: appointment.patientName,
+              title: `${appointment.patientName} - ${statusLabel(appointment.status)}`,
               start: appointment.startsAt,
               end: appointment.endsAt,
               className: `calendar-event ${appointment.status.toLowerCase()}`
@@ -589,49 +599,44 @@ function AgendaPage({ appointments, patients, token, onChanged }: { appointments
         {message ? <output>{message}</output> : null}
       </Panel>
       <section className="agenda-side">
+        <PendingAppointments appointments={pendingAppointments} token={token} onChanged={onChanged} onOpen={setSelectedId} />
         <CreateAppointment token={token} onCreated={onChanged} selectedDate={draftDate} selectedTime={draftTime} />
-        <AppointmentDetails appointment={selectedAppointment} patients={patients} token={token} onRemoved={onChanged} />
       </section>
+      {selectedAppointment ? <PatientRecordModal appointment={selectedAppointment} patientId={selectedAppointment.patientId} token={token} onClose={() => setSelectedId("")} onChanged={onChanged} /> : null}
     </section>
   );
 }
 
-function AppointmentDetails({ appointment, patients, token, onRemoved }: { appointment: AppointmentSummary | null; patients: PatientSummary[]; token: string; onRemoved: () => void }) {
+function PendingAppointments({ appointments, token, onChanged, onOpen }: { appointments: AppointmentSummary[]; token: string; onChanged: () => void; onOpen: (id: string) => void }) {
   const [message, setMessage] = useState("");
-  const patient = appointment ? matchingPatient(appointment.patientName, patients) : null;
 
-  useEffect(() => setMessage(""), [appointment?.id]);
-
-  async function remove() {
-    if (!appointment) return;
-
+  async function updateStatus(appointment: AppointmentSummary, status: AppointmentStatus) {
     try {
-      await api(`/api/appointments/${appointment.id}`, { ...auth(token), method: "DELETE" });
-      setMessage("Rendez-vous supprime.");
-      onRemoved();
+      await api(`/api/appointments/${appointment.id}/status`, { ...auth(token), method: "PATCH", body: JSON.stringify({ status }) });
+      setMessage(status === "CONFIRMED" ? "Rendez-vous confirmé. Encaissement de 40 TND ajouté." : "Demande annulée.");
+      onChanged();
     } catch (error) {
       setMessage(readError(error));
     }
   }
 
   return (
-    <Panel title="Rendez-vous selectionne" subtitle="Dossier du rendez-vous et informations patient.">
-      {!appointment ? <p className="empty">Aucun rendez-vous selectionne.</p> : (
-        <div className="appointment-details">
-          <strong>{appointment.patientName}</strong>
-          <time>{appointmentDateTime(appointment)}</time>
-          <span>{appointment.reason}</span>
-          <Status value={appointment.status} />
-          {patient ? (
-            <article>
-              <p>Dossier patient</p>
-              <strong>{patient.firstName} {patient.lastName}</strong>
-              <span>{patient.phone}</span>
-              <small>Allergies: {patient.allergies.join(", ") || "Aucune signalee"}</small>
-              <small>Pathologies: {patient.chronicConditions.join(", ") || "Aucune signalee"}</small>
+    <Panel title="Demandes à confirmer" subtitle="Les demandes du site apparaissent dans l'agenda après confirmation.">
+      {!appointments.length ? <p className="empty">Aucune demande en attente.</p> : (
+        <div className="request-list">
+          {appointments.map((appointment) => (
+            <article key={appointment.id}>
+              <button className="patient-command" type="button" onClick={() => onOpen(appointment.id)}>
+                <strong>{appointment.patientName}</strong>
+                <time>{appointmentDateTime(appointment)}</time>
+                <span>{appointment.reason}</span>
+              </button>
+              <div className="inline-actions">
+                <button type="button" onClick={() => void updateStatus(appointment, "CONFIRMED")}><CheckCircle2 /> Confirmer</button>
+                <button className="quiet-command" type="button" onClick={() => void updateStatus(appointment, "CANCELLED")}><X /> Refuser</button>
+              </div>
             </article>
-          ) : <p className="empty">Aucun dossier patient correspondant.</p>}
-          <button className="danger-command" type="button" onClick={remove}><Trash2 /> Supprimer</button>
+          ))}
         </div>
       )}
       {message ? <output>{message}</output> : null}
@@ -639,39 +644,168 @@ function AppointmentDetails({ appointment, patients, token, onRemoved }: { appoi
   );
 }
 
-function PatientsPage({ patients, token, onCreated }: { patients: PatientSummary[]; token: string; onCreated: () => void }) {
+function PatientRecordModal({ patientId, appointment, token, onClose, onChanged }: { patientId: string; appointment?: AppointmentSummary; token: string; onClose: () => void; onChanged: () => void }) {
+  const [details, setDetails] = useState<PatientDetails | null>(null);
+  const [activeAppointment, setActiveAppointment] = useState(appointment ?? null);
+  const [message, setMessage] = useState("");
+  const [reloadId, setReloadId] = useState(0);
+
+  useEffect(() => setActiveAppointment(appointment ?? null), [appointment]);
+
+  useEffect(() => {
+    setDetails(null);
+    api<PatientDetails>(`/api/patients/${patientId}`, auth(token))
+      .then(setDetails)
+      .catch((error) => setMessage(readError(error)));
+  }, [patientId, reloadId, token]);
+
+  async function updateStatus(status: AppointmentStatus) {
+    if (!activeAppointment) return;
+    try {
+      const updated = await api<AppointmentSummary>(`/api/appointments/${activeAppointment.id}/status`, {
+        ...auth(token),
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+      setActiveAppointment(updated);
+      setMessage(status === "CONFIRMED" ? "Confirmé : +40 TND encaissés automatiquement." : `Statut modifié : ${statusLabel(status)}.`);
+      setReloadId((value) => value + 1);
+      onChanged();
+    } catch (error) {
+      setMessage(readError(error));
+    }
+  }
+
+  async function removeAppointment() {
+    if (!activeAppointment) return;
+    try {
+      await api(`/api/appointments/${activeAppointment.id}`, { ...auth(token), method: "DELETE" });
+      onChanged();
+      onClose();
+    } catch (error) {
+      setMessage(readError(error));
+    }
+  }
+
   return (
-    <section className="admin-page admin-grid">
-      <Panel title="Patients" subtitle="Dossiers recents et coordonnees.">
-        <PatientList patients={patients} />
-      </Panel>
-      <CreatePatient token={token} onCreated={onCreated} />
-    </section>
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="patient-modal" aria-label="Dossier détaillé du patient" aria-modal="true" role="dialog">
+        <header>
+          <div>
+            <p className="eyebrow">Dossier patient</p>
+            <h2>{details ? `${details.firstName} ${details.lastName}` : "Chargement..."}</h2>
+          </div>
+          <button className="close-command" type="button" onClick={onClose} aria-label="Fermer"><X /></button>
+        </header>
+        {!details ? <p className="empty">Chargement du dossier...</p> : (
+          <div className="patient-record">
+            <section className="identity-card">
+              <strong>Coordonnées et santé</strong>
+              <span>Téléphone : {details.phone || "Non renseigné"}</span>
+              <span>Email : {details.email || "Non renseigné"}</span>
+              <span>Adresse : {details.address || "Non renseignée"}</span>
+              <span>Allergies : {details.allergies.join(", ") || "Aucune signalée"}</span>
+              <span>Pathologies : {details.chronicConditions.join(", ") || "Aucune signalée"}</span>
+              <span>Antécédents : {details.medicalHistory || "Non renseignés"}</span>
+            </section>
+            {activeAppointment ? (
+              <section className="selected-visit">
+                <div>
+                  <strong>Rendez-vous sélectionné</strong>
+                  <time>{appointmentDateTime(activeAppointment)}</time>
+                  <span>{activeAppointment.reason}</span>
+                </div>
+                <Status value={activeAppointment.status} />
+                <div className="inline-actions">
+                  {activeAppointment.status === "PENDING" ? <button type="button" onClick={() => void updateStatus("CONFIRMED")}><CheckCircle2 /> Confirmer (+40 TND)</button> : null}
+                  {activeAppointment.status === "CONFIRMED" ? <button type="button" onClick={() => void updateStatus("COMPLETED")}><CheckCircle2 /> Marquer terminé</button> : null}
+                  {activeAppointment.status !== "CANCELLED" ? <button className="quiet-command" type="button" onClick={() => void updateStatus("CANCELLED")}><X /> Annuler</button> : null}
+                  <button className="danger-command" type="button" onClick={() => void removeAppointment()}><Trash2 /> Supprimer</button>
+                </div>
+              </section>
+            ) : null}
+            <section className="record-grid">
+              <div>
+                <h3>Rendez-vous</h3>
+                {!details.appointments.length ? <p className="empty">Aucun rendez-vous enregistré.</p> : details.appointments.map((item) => (
+                  <article key={item.id}><time>{appointmentDateTime(item)}</time><span>{item.reason}</span><Status value={item.status} /></article>
+                ))}
+              </div>
+              <div>
+                <h3>Consultations</h3>
+                {!details.consultations.length ? <p className="empty">Aucune consultation enregistrée.</p> : details.consultations.map((consultation) => (
+                  <article key={consultation.id}>
+                    <time>{formatDateTime(consultation.createdAt)}</time>
+                    <strong>{consultation.diagnosis}</strong>
+                    <span>Symptômes : {consultation.symptoms}</span>
+                    <span>{consultation.treatment}</span>
+                    <small>Actes : {consultation.medicalActs.join(", ") || "Non renseignés"}</small>
+                    <small>Tarif indicatif : {money(consultation.priceCents)}</small>
+                  </article>
+                ))}
+              </div>
+              <div>
+                <h3>Suivi financier</h3>
+                {!details.invoices.length ? <p className="empty">Aucun encaissement.</p> : details.invoices.map((invoice) => (
+                  <article key={invoice.id} className="payment-entry">
+                    <time>{formatDateTime(invoice.createdAt)}</time>
+                    <strong>+ {money(invoice.amountCents)}</strong>
+                    <span>{invoice.number} - {invoice.paidAt ? "Encaissé" : "À encaisser"}</span>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+        {message ? <output>{message}</output> : null}
+      </section>
+    </div>
   );
 }
 
-function ConsultationsPage({ token, patients }: { token: string; patients: PatientSummary[] }) {
+function PatientsPage({ patients, token, onChanged }: { patients: PatientSummary[]; token: string; onChanged: () => void }) {
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+
   return (
-    <section className="admin-page consultation-page">
-      <DictationTool token={token} patients={patients} />
-      <Panel title="Patients disponibles" subtitle="Selectionnez le dossier dans la consultation.">
-        <PatientList patients={patients} />
-      </Panel>
-    </section>
+    <>
+      <section className="admin-page admin-grid">
+        <Panel title="Tous les patients" subtitle="Ouvrez un dossier pour consulter son suivi complet.">
+          <PatientList patients={patients} onSelect={setSelectedPatientId} />
+        </Panel>
+        <CreatePatient token={token} onCreated={onChanged} />
+      </section>
+      {selectedPatientId ? <PatientRecordModal patientId={selectedPatientId} token={token} onClose={() => setSelectedPatientId("")} onChanged={onChanged} /> : null}
+    </>
   );
 }
 
-function FinancePage({ token, finance, reminders, platform }: { token: string; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null }) {
+function ConsultationsPage({ token, patients, onChanged }: { token: string; patients: PatientSummary[]; onChanged: () => void }) {
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+
+  return (
+    <>
+      <section className="admin-page consultation-page">
+        <DictationTool token={token} patients={patients} onSaved={onChanged} />
+        <Panel title="Patients disponibles" subtitle="Ouvrez le dossier pour voir les consultations enregistrées.">
+          <PatientList patients={patients} onSelect={setSelectedPatientId} />
+        </Panel>
+      </section>
+      {selectedPatientId ? <PatientRecordModal patientId={selectedPatientId} token={token} onClose={() => setSelectedPatientId("")} onChanged={onChanged} /> : null}
+    </>
+  );
+}
+
+function FinancePage({ token, finance, activity, reminders, platform }: { token: string; finance: FinanceSummary | null; activity: FinanceActivity[]; reminders: Reminder[]; platform: PlatformStats | null }) {
   return (
     <div className="admin-page">
       <section className="metrics finance-metrics">
-        <Metric icon={<CreditCard />} label="Encaisse" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
-        <Metric icon={<CreditCard />} label="Impayes" value={money(finance?.unpaidCents)} detail="A relancer" />
-        <Metric icon={<CreditCard />} label="Paiements cash" value={money(finance?.payments.cashCents)} detail="Recettes du mois" />
+        <Metric icon={<CreditCard />} label="Encaissé" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} opération(s)`} />
+        <Metric icon={<CreditCard />} label="À encaisser" value={money(finance?.unpaidCents)} detail="À relancer" />
+        <Metric icon={<CreditCard />} label="Paiements espèces" value={money(finance?.payments.cashCents)} detail="Recettes du mois" />
         <Metric icon={<CreditCard />} label="Paiements carte" value={money(finance?.payments.cardCents)} detail="Recettes du mois" />
       </section>
       <section className="admin-grid finance-grid">
-        <RevenuePanel />
+        <RevenuePanel activity={activity} />
         <InvoiceTool token={token} />
       </section>
       <section className="admin-grid finance-grid">
@@ -681,36 +815,56 @@ function FinancePage({ token, finance, reminders, platform }: { token: string; f
   );
 }
 
-function RevenuePanel() {
+function RevenuePanel({ activity }: { activity: FinanceActivity[] }) {
   return (
-    <Panel title="Activite et facturation" subtitle="Suivi mensuel du cabinet.">
-      <p className="empty">Aucune donnee de facturation disponible.</p>
+    <Panel title="Activité et encaissements" subtitle="Chaque confirmation de rendez-vous ajoute automatiquement 40 TND.">
+      {!activity.length ? <p className="empty">Aucun encaissement enregistré.</p> : (
+        <div className="finance-activity">
+          {activity.map((entry) => (
+            <article key={entry.id}>
+              <div><strong>{entry.patientName}</strong><small>{formatDateTime(entry.createdAt)} - {entry.number}</small></div>
+              <b>+ {money(entry.amountCents)}</b>
+              <span>{entry.paidAt ? "Encaissé" : "À encaisser"}</span>
+            </article>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 function OperationsPanel({ reminders, platform }: { reminders: Reminder[]; platform: PlatformStats | null }) {
   return (
-    <Panel title="Rappels et securite" subtitle="Evenements operationnels.">
+    <Panel title="Rappels et sécurité" subtitle="Événements opérationnels.">
       <div className="reminders">
         {reminders.map((reminder) => <article key={reminder.id}><BellRing /><strong>{reminder.message}</strong><span>{reminder.channel} - {reminder.status} - {reminder.target}</span></article>)}
         {platform ? <article><ShieldCheck /><strong>{platform.clinics} cabinet actif, {platform.doctors} dentiste</strong><span>MRR {money(platform.monthlyRecurringRevenueCents)} - {platform.auditEvents24h} audits / 24h</span></article> : null}
-        {!reminders.length && !platform ? <p className="empty">Aucun rappel operationnel.</p> : null}
+        {!reminders.length && !platform ? <p className="empty">Aucun rappel opérationnel.</p> : null}
       </div>
     </Panel>
   );
 }
 
-function PatientList({ patients }: { patients: PatientSummary[] }) {
-  if (!patients.length) return <p className="empty">Aucun patient trouve.</p>;
+function PatientList({ patients, onSelect }: { patients: PatientSummary[]; onSelect?: (id: string) => void }) {
+  if (!patients.length) return <p className="empty">Aucun patient trouvé.</p>;
 
   return (
     <div className="patient-list">
       {patients.map((patient) => (
-        <article key={patient.id}>
-          <strong>{patient.firstName} {patient.lastName}</strong>
-          <span>{patient.phone}</span>
-          <small>{patient.allergies.join(", ") || "Aucune allergie signalee"}</small>
+        <article key={patient.id} className={onSelect ? "selectable-patient" : undefined}>
+          {onSelect ? (
+            <button className="patient-command" type="button" onClick={() => onSelect(patient.id)}>
+              <strong>{patient.firstName} {patient.lastName}</strong>
+              <span>{patient.phone || "Téléphone non renseigné"}</span>
+              <small>{patient.allergies.join(", ") || "Aucune allergie signalée"}</small>
+            </button>
+          ) : (
+            <>
+              <strong>{patient.firstName} {patient.lastName}</strong>
+              <span>{patient.phone || "Téléphone non renseigné"}</span>
+              <small>{patient.allergies.join(", ") || "Aucune allergie signalée"}</small>
+            </>
+          )}
         </article>
       ))}
     </div>
@@ -733,7 +887,7 @@ function CreateAppointment({ token, onCreated, selectedDate = tomorrowDate(), se
         method: "POST",
         body: JSON.stringify({ patientName: form.patientName, startsAt: startsAt.toISOString(), endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(), status: form.status, reason: form.reason })
       });
-      setMessage("Rendez-vous ajoute.");
+      setMessage("Rendez-vous ajouté.");
       setForm((current) => ({ ...current, patientName: "" }));
       onCreated();
     } catch (error) {
@@ -741,11 +895,11 @@ function CreateAppointment({ token, onCreated, selectedDate = tomorrowDate(), se
     }
   }
 
-  return <Panel title="Nouveau rendez-vous" subtitle="Creation directe par l'equipe."><form className="stack-form" onSubmit={submit}><label>Patient<input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} /></label><div className="form-pair"><label>Date<input type="date" required value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><label>Heure<input type="time" required value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} /></label></div><label>Motif<input required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label><label>Etat<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as AppointmentStatus })}><option>CONFIRMED</option><option>PENDING</option><option>COMPLETED</option><option>CANCELLED</option></select></label><button><CalendarCheck /> Ajouter</button>{message ? <output>{message}</output> : null}</form></Panel>;
+  return <Panel title="Nouveau rendez-vous" subtitle="Création directe par l'équipe. Un rendez-vous confirmé ajoute 40 TND."><form className="stack-form" onSubmit={submit}><label>Patient<input required value={form.patientName} onChange={(event) => setForm({ ...form, patientName: event.target.value })} /></label><div className="form-pair"><label>Date<input type="date" required value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><label>Heure<input type="time" required value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} /></label></div><label>Motif<input required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label><label>Statut<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as AppointmentStatus })}><option value="CONFIRMED">Confirmé</option><option value="PENDING">En attente</option><option value="COMPLETED">Terminé</option><option value="CANCELLED">Annulé</option></select></label><button><CalendarCheck /> Ajouter</button>{message ? <output>{message}</output> : null}</form></Panel>;
 }
 
 function CreatePatient({ token, onCreated }: { token: string; onCreated: () => void }) {
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", allergies: "", chronicConditions: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", address: "", medicalHistory: "", allergies: "", chronicConditions: "" });
   const [message, setMessage] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -756,18 +910,18 @@ function CreatePatient({ token, onCreated }: { token: string; onCreated: () => v
         method: "POST",
         body: JSON.stringify({ ...form, allergies: csv(form.allergies), chronicConditions: csv(form.chronicConditions) })
       });
-      setMessage("Patient ajoute.");
-      setForm({ firstName: "", lastName: "", phone: "", allergies: "", chronicConditions: "" });
+      setMessage("Patient ajouté.");
+      setForm({ firstName: "", lastName: "", phone: "", email: "", address: "", medicalHistory: "", allergies: "", chronicConditions: "" });
       onCreated();
     } catch (error) {
       setMessage(readError(error));
     }
   }
 
-  return <Panel title="Nouveau patient" subtitle="Coordonnees essentielles."><form className="stack-form" onSubmit={submit}><div className="form-pair"><label>Prenom<input required value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} /></label><label>Nom<input required value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} /></label></div><label>Telephone<input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Allergies<input value={form.allergies} onChange={(event) => setForm({ ...form, allergies: event.target.value })} placeholder="Penicilline, AINS" /></label><label>Pathologies chroniques<input value={form.chronicConditions} onChange={(event) => setForm({ ...form, chronicConditions: event.target.value })} /></label><button><UserRoundPlus /> Creer</button>{message ? <output>{message}</output> : null}</form></Panel>;
+  return <Panel title="Nouveau patient" subtitle="Coordonnées et informations médicales."><form className="stack-form" onSubmit={submit}><div className="form-pair"><label>Prénom<input required value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} /></label><label>Nom<input required value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} /></label></div><div className="form-pair"><label>Téléphone<input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label></div><label>Adresse<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label><label>Allergies<input value={form.allergies} onChange={(event) => setForm({ ...form, allergies: event.target.value })} placeholder="Pénicilline, AINS" /></label><label>Pathologies chroniques<input value={form.chronicConditions} onChange={(event) => setForm({ ...form, chronicConditions: event.target.value })} /></label><label>Antécédents médicaux<textarea value={form.medicalHistory} onChange={(event) => setForm({ ...form, medicalHistory: event.target.value })} /></label><button><UserRoundPlus /> Créer</button>{message ? <output>{message}</output> : null}</form></Panel>;
 }
 
-function DictationTool({ token, patients }: { token: string; patients: PatientSummary[] }) {
+function DictationTool({ token, patients, onSaved }: { token: string; patients: PatientSummary[]; onSaved: () => void }) {
   const [patientId, setPatientId] = useState("");
   const [rawDictation, setRawDictation] = useState("");
   const [note, setNote] = useState<StructuredMedicalNote | null>(null);
@@ -808,7 +962,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
   async function refreshMicrophones(requestPermission: boolean) {
     if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUserMedia) {
       setSpeechStatus("unsupported");
-      setSpeechMessage("La selection du microphone n'est pas disponible dans ce navigateur.");
+      setSpeechMessage("La sélection du microphone n'est pas disponible dans ce navigateur.");
       return;
     }
 
@@ -820,11 +974,11 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
       setSelectedMicrophoneId((current) => current && !inputs.some((device) => device.deviceId === current) ? "" : current);
       if (requestPermission) {
         setSpeechStatus("idle");
-        setSpeechMessage(inputs.length ? "Microphones disponibles. Selectionnez celui a utiliser pour la dictee." : "Aucun microphone detecte.");
+        setSpeechMessage(inputs.length ? "Microphones disponibles. Sélectionnez celui à utiliser pour la dictée." : "Aucun microphone détecté.");
       }
     } catch {
       setSpeechStatus("error");
-      setSpeechMessage("Acces au microphone refuse. Autorisez le microphone pour voir et selectionner vos appareils.");
+      setSpeechMessage("Accès au microphone refusé. Autorisez le microphone pour voir et sélectionner vos appareils.");
     } finally {
       permissionStream?.getTracks().forEach((track) => track.stop());
     }
@@ -840,7 +994,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
     const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
     if (!Recognition) {
       setSpeechStatus("unsupported");
-      setSpeechMessage("La transcription vocale n'est pas disponible dans ce navigateur. Utilisez Chrome ou Edge, ou saisissez la dictee.");
+      setSpeechMessage("La transcription vocale n'est pas disponible dans ce navigateur. Utilisez Chrome ou Edge, ou saisissez la dictée.");
       return;
     }
 
@@ -898,7 +1052,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
       recognitionRef.current = null;
       stopInputStream();
       setSpeechStatus("error");
-      setSpeechMessage("Impossible de demarrer ce microphone. Verifiez son autorisation ou selectionnez un autre appareil.");
+      setSpeechMessage("Impossible de démarrer ce microphone. Vérifiez son autorisation ou sélectionnez un autre appareil.");
     }
   }
 
@@ -913,8 +1067,9 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
 
   async function saveConsultation() {
     try {
-      const saved = await api<{ id: string }>("/api/consultations/from-dictation", { ...auth(token), method: "POST", body: JSON.stringify({ patientId, rawDictation }) });
-      setConsultation(`Consultation ${saved.id} creee.`);
+      const saved = await api<ConsultationSummary>("/api/consultations/from-dictation", { ...auth(token), method: "POST", body: JSON.stringify({ patientId, rawDictation }) });
+      setConsultation(`Consultation enregistrée le ${formatDateTime(saved.createdAt)}.`);
+      onSaved();
     } catch (error) {
       setConsultation(readError(error));
     }
@@ -923,7 +1078,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
   const listening = speechStatus === "listening";
 
   return (
-    <Panel title="Consultation IA" subtitle="Dictee vocale et structuration de note dentaire.">
+    <Panel title="Consultation IA" subtitle="Dictée vocale et structuration de note dentaire.">
       <div className="stack-form">
         <label>
           Patient
@@ -933,12 +1088,12 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
         </label>
         <label className="dictation-field">
           <span className="dictation-heading">
-            Dictee
+            Dictée
             {listening ? <small><i /> Enregistrement en cours</small> : null}
           </span>
           <textarea
             disabled={listening}
-            placeholder="Decrivez les symptomes et les soins, ou utilisez le microphone."
+            placeholder="Décrivez les symptômes et les soins, ou utilisez le microphone."
             rows={8}
             value={rawDictation}
             onChange={(event) => setRawDictation(event.target.value)}
@@ -965,7 +1120,7 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
             {listening ? <Square /> : <Mic />}
             {listening ? "Arreter" : "Dicter la consultation"}
           </button>
-          <p>La dictee utilise le microphone selectionne; verifiez le texte avant enregistrement.</p>
+          <p>La dictée utilise le microphone sélectionné; vérifiez le texte avant enregistrement.</p>
         </div>
         {interimTranscript ? <p className="live-transcript"><strong>Ecoute :</strong> {interimTranscript}</p> : null}
         {speechMessage ? <output className={speechStatus === "idle" || listening ? undefined : "error"}>{speechMessage}</output> : null}
@@ -996,7 +1151,7 @@ function InvoiceTool({ token }: { token: string }) {
     }
   }
 
-  return <Panel title="Facture" subtitle="Apercu avant generation PDF."><form className="stack-form" onSubmit={preview}><label>Patient<input required value={patientName} onChange={(event) => setPatientName(event.target.value)} /></label><label>Montant TND<input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><button><CreditCard /> Previsualiser</button>{invoice ? <article className="invoice"><strong>{invoice.number}</strong><span>{invoice.patientName}</span><b>{money(invoice.amountCents)}</b></article> : null}{error ? <output>{error}</output> : null}</form></Panel>;
+  return <Panel title="Facture" subtitle="Aperçu avant génération PDF."><form className="stack-form" onSubmit={preview}><label>Patient<input required value={patientName} onChange={(event) => setPatientName(event.target.value)} /></label><label>Montant TND<input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><button><CreditCard /> Prévisualiser</button>{invoice ? <article className="invoice"><strong>{invoice.number}</strong><span>{invoice.patientName}</span><b>{money(invoice.amountCents)}</b></article> : null}{error ? <output>{error}</output> : null}</form></Panel>;
 }
 
 function AppointmentTimeline({ appointments }: { appointments: AppointmentSummary[] }) {
@@ -1022,7 +1177,7 @@ function BrandLogo() {
 }
 
 function Status({ value }: { value: AppointmentStatus }) {
-  return <em className={`status ${value.toLowerCase()}`}>{({ CONFIRMED: "Confirme", PENDING: "En attente", CANCELLED: "Annule", COMPLETED: "Termine" } as const)[value]}</em>;
+  return <em className={`status ${value.toLowerCase()}`}>{statusLabel(value)}</em>;
 }
 
 function auth(token: string): RequestInit {
@@ -1050,15 +1205,27 @@ function joinText(first: string, second: string) {
 }
 
 function speechRecognitionError(error: string) {
-  if (error === "not-allowed" || error === "service-not-allowed") return "Acces au microphone refuse. Autorisez le microphone pour dicter la consultation.";
-  if (error === "no-speech") return "Aucune parole detectee. Relancez la dictee et parlez pres du microphone.";
+  if (error === "not-allowed" || error === "service-not-allowed") return "Accès au microphone refusé. Autorisez le microphone pour dicter la consultation.";
+  if (error === "no-speech") return "Aucune parole détectée. Relancez la dictée et parlez près du microphone.";
   if (error === "audio-capture") return "Aucun microphone disponible sur cet appareil.";
   if (error === "network") return "Le service de reconnaissance vocale du navigateur est indisponible.";
-  return "La transcription vocale a echoue. Vous pouvez recommencer ou saisir le texte.";
+  return "La transcription vocale a échoué. Vous pouvez recommencer ou saisir le texte.";
 }
 
 function money(cents = 0) {
   return `${(cents / 100).toLocaleString("fr-FR")} TND`;
+}
+
+function statusLabel(status: AppointmentStatus) {
+  return ({ CONFIRMED: "Confirmé", PENDING: "En attente", CANCELLED: "Annulé", COMPLETED: "Terminé" } as const)[status];
+}
+
+function roleLabel(role: UserRole) {
+  return ({ DOCTOR: "Dentiste", SECRETARY: "Secrétariat", SAAS_ADMIN: "Administration" } as const)[role];
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function tomorrowDate() {
@@ -1085,18 +1252,9 @@ function timeInput(date: Date) {
 }
 
 function appointmentDateTime(appointment: AppointmentSummary) {
-  const startsAt = new Date(appointment.startsAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+  const startsAt = formatDateTime(appointment.startsAt);
   const endsAt = new Date(appointment.endsAt).toLocaleTimeString("fr-FR", { timeStyle: "short" });
   return `${startsAt} - ${endsAt}`;
-}
-
-function matchingPatient(patientName: string, patients: PatientSummary[]) {
-  const name = normalize(patientName);
-  return patients.find((patient) => name === normalize(`${patient.firstName} ${patient.lastName}`)) ?? null;
-}
-
-function normalize(value: string) {
-  return value.trim().toLocaleLowerCase("fr-FR").replace(/\s+/g, " ");
 }
 
 function currentAdminPage(): AdminPage {

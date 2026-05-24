@@ -1088,6 +1088,51 @@ output.error,
   min-width: 0;
 }
 
+.request-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.request-list article {
+  background: var(--mist);
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.7rem;
+}
+
+.patient-command {
+  align-items: start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: grid;
+  gap: 0.28rem;
+  justify-content: stretch;
+  min-height: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.patient-command:hover strong {
+  color: var(--leaf);
+}
+
+.patient-command time,
+.patient-command span,
+.patient-command small {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.quiet-command {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
 .cabinet-calendar {
   min-height: 40rem;
 }
@@ -1223,6 +1268,129 @@ output.error,
 
 .appointment-details .status {
   justify-self: start;
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(12, 29, 39, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: clamp(0.75rem, 3vw, 2rem);
+  position: fixed;
+  z-index: 20;
+}
+
+.patient-modal {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 22px 70px rgba(12, 29, 39, 0.28);
+  display: grid;
+  gap: 1rem;
+  max-height: calc(100svh - 2rem);
+  max-width: 68rem;
+  overflow-y: auto;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  width: 100%;
+}
+
+.patient-modal > header {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+}
+
+.patient-modal h2 {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  margin: 0.25rem 0 0;
+}
+
+.close-command {
+  background: var(--mist);
+  border-color: transparent;
+  color: var(--muted);
+  min-height: 2.45rem;
+  padding: 0.55rem;
+}
+
+.patient-record {
+  display: grid;
+  gap: 1rem;
+}
+
+.identity-card,
+.selected-visit {
+  background: var(--mist);
+  border: 1px solid #dce7e2;
+  border-radius: 10px;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+}
+
+.identity-card span,
+.selected-visit span,
+.selected-visit time {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.selected-visit {
+  align-items: center;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+}
+
+.selected-visit > div:first-child {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.selected-visit .inline-actions {
+  grid-column: 1 / -1;
+}
+
+.record-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.record-grid > div {
+  background: #f8fbfc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+}
+
+.record-grid h3 {
+  font-size: 0.96rem;
+  margin: 0 0 0.2rem;
+}
+
+.record-grid article {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.24rem;
+  padding: 0.55rem;
+}
+
+.record-grid article time,
+.record-grid article span,
+.record-grid article small {
+  color: var(--muted);
+  font-size: 0.77rem;
+}
+
+.record-grid .status {
+  justify-self: start;
+}
+
+.record-grid .payment-entry strong {
+  color: var(--leaf);
 }
 
 .danger-command {
@@ -1430,6 +1598,10 @@ output.error,
   padding: 0.7rem;
 }
 
+.patient-list .selectable-patient {
+  padding: 0.7rem;
+}
+
 .note {
   border-left: 3px solid var(--leaf);
 }
@@ -1440,6 +1612,37 @@ output.error,
 
 .finance-grid {
   align-items: stretch;
+}
+
+.finance-activity {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.finance-activity article {
+  align-items: center;
+  background: var(--mist);
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.25rem 0.7rem;
+  grid-template-columns: minmax(10rem, 1fr) auto auto;
+  padding: 0.7rem;
+}
+
+.finance-activity article div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.finance-activity small,
+.finance-activity span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.finance-activity b {
+  color: var(--leaf);
 }
 
 .reminders article {
@@ -1530,7 +1733,8 @@ output.error,
   .metrics,
   .admin-grid,
   .agenda-page,
-  .consultation-page {
+  .consultation-page,
+  .record-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1590,6 +1794,11 @@ output.error,
 
   .status {
     justify-self: start;
+  }
+
+  .selected-visit,
+  .finance-activity article {
+    grid-template-columns: 1fr;
   }
 }
 

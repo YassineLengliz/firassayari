@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { PRIMARY_DOCTOR, type AppointmentSummary, type PublicBusyPeriod } from "@medcabinet/shared";
+import { PRIMARY_DOCTOR, type AppointmentStatus, type AppointmentSummary, type PublicBusyPeriod } from "@medcabinet/shared";
 import { ensurePrimaryDoctor, PRIMARY_CLINIC_ID } from "../common/cabinet-records";
 import { PrismaService } from "../common/prisma/prisma.service";
 
-type CreateAppointmentInput = Omit<AppointmentSummary, "id" | "doctorName" | "doctorShortName"> & {
+type CreateAppointmentInput = Omit<AppointmentSummary, "id" | "patientId" | "doctorName" | "doctorShortName"> & {
   patientPhone?: string;
 };
 
@@ -52,17 +52,23 @@ export class AppointmentsService {
     await this.assertAvailable(input.startsAt, input.endsAt);
     const patient = await this.patientForAppointment(input.patientName, input.patientPhone);
 
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        clinicId: PRIMARY_CLINIC_ID,
-        patientId: patient.id,
-        doctorId: PRIMARY_DOCTOR.id,
-        startsAt: new Date(input.startsAt),
-        endsAt: new Date(input.endsAt),
-        status: input.status,
-        reason: input.reason
-      },
-      include: { patient: true, doctor: true }
+    const appointment = await this.prisma.$transaction(async (transaction) => {
+      const created = await transaction.appointment.create({
+        data: {
+          clinicId: PRIMARY_CLINIC_ID,
+          patientId: patient.id,
+          doctorId: PRIMARY_DOCTOR.id,
+          startsAt: new Date(input.startsAt),
+          endsAt: new Date(input.endsAt),
+          status: input.status,
+          reason: input.reason
+        },
+        include: { patient: true, doctor: true }
+      });
+      if (input.status === "CONFIRMED") {
+        await this.recordConfirmationPayment(transaction, created.id, patient.id);
+      }
+      return created;
     });
 
     return this.summary(appointment);
@@ -88,6 +94,23 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.delete({
       where: { id },
       include: { patient: true, doctor: true }
+    });
+
+    return this.summary(appointment);
+  }
+
+  async updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentSummary> {
+    await this.assertExists(id);
+    const appointment = await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.appointment.update({
+        where: { id },
+        data: { status },
+        include: { patient: true, doctor: true }
+      });
+      if (status === "CONFIRMED") {
+        await this.recordConfirmationPayment(transaction, updated.id, updated.patientId);
+      }
+      return updated;
     });
 
     return this.summary(appointment);
@@ -157,8 +180,30 @@ export class AppointmentsService {
     });
   }
 
+  private recordConfirmationPayment(
+    transaction: Pick<PrismaService, "invoice">,
+    appointmentId: string,
+    patientId: string
+  ) {
+    return transaction.invoice.upsert({
+      where: { number: `RDV-${appointmentId}` },
+      update: {},
+      create: {
+        clinicId: PRIMARY_CLINIC_ID,
+        patientId,
+        number: `RDV-${appointmentId}`,
+        doctorName: PRIMARY_DOCTOR.fullName,
+        doctorShortName: PRIMARY_DOCTOR.shortName,
+        amountCents: 4000,
+        paidAt: new Date(),
+        paymentMethod: "CASH"
+      }
+    });
+  }
+
   private summary(appointment: {
     id: string;
+    patientId: string;
     startsAt: Date;
     endsAt: Date;
     status: AppointmentSummary["status"];
@@ -168,6 +213,7 @@ export class AppointmentsService {
   }): AppointmentSummary {
     return {
       id: appointment.id,
+      patientId: appointment.patientId,
       patientName: `${appointment.patient.firstName} ${appointment.patient.lastName}`.trim(),
       doctorName: appointment.doctor.fullName,
       doctorShortName: appointment.doctor.displayName,

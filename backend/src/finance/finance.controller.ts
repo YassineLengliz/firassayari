@@ -24,6 +24,12 @@ export class FinanceController {
     return this.finance.monthlySummary();
   }
 
+  @Get("activity")
+  @Roles("DOCTOR", "SECRETARY", "SAAS_ADMIN")
+  activity() {
+    return this.finance.activity();
+  }
+
   @Post("invoice-preview")
   @Roles("DOCTOR", "SECRETARY")
   invoicePreview(@Body() dto: InvoicePreviewDto) {

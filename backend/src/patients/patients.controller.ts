@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
-import { IsArray, IsString } from "class-validator";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { IsArray, IsOptional, IsString } from "class-validator";
 import { RbacGuard } from "../auth/rbac.guard";
 import { Roles } from "../auth/roles.decorator";
 import { PatientsService } from "./patients.service";
@@ -13,6 +13,18 @@ class CreatePatientDto {
 
   @IsString()
   phone!: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  medicalHistory?: string;
 
   @IsArray()
   allergies!: string[];
@@ -30,6 +42,12 @@ export class PatientsController {
   @Roles("DOCTOR", "SECRETARY", "SAAS_ADMIN")
   list(@Query("search") search?: string) {
     return this.patients.list(search);
+  }
+
+  @Get(":id")
+  @Roles("DOCTOR", "SECRETARY", "SAAS_ADMIN")
+  details(@Param("id") id: string) {
+    return this.patients.details(id);
   }
 
   @Post()

@@ -47,6 +47,11 @@ class MoveAppointmentDto {
   endsAt!: string;
 }
 
+class UpdateAppointmentStatusDto {
+  @IsIn(["CONFIRMED", "PENDING", "CANCELLED", "COMPLETED"])
+  status!: AppointmentStatus;
+}
+
 class PublicAvailabilityDto {
   @IsDateString()
   from!: string;
@@ -83,6 +88,13 @@ export class AppointmentsController {
   @Roles("DOCTOR", "SECRETARY")
   move(@Param("id") id: string, @Body() dto: MoveAppointmentDto) {
     return this.appointments.move(id, dto);
+  }
+
+  @Patch(":id/status")
+  @UseGuards(RbacGuard)
+  @Roles("DOCTOR", "SECRETARY")
+  updateStatus(@Param("id") id: string, @Body() dto: UpdateAppointmentStatusDto) {
+    return this.appointments.updateStatus(id, dto.status);
   }
 
   @Delete(":id")
