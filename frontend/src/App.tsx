@@ -10,6 +10,7 @@ import {
   FileText,
   LogIn,
   LogOut,
+  MapPin,
   Search,
   ShieldCheck,
   SmilePlus,
@@ -158,6 +159,7 @@ function PatientLanding() {
           <nav aria-label="Navigation publique">
             <a href="#soins">Soins</a>
             <a href="#cabinet">Cabinet</a>
+            <a href="#localisation">Localisation</a>
             <a href="#rdv" className="appointment-link"><CalendarCheck /> Prendre rendez-vous</a>
             <a className="nav-command" href="/admin"><ShieldCheck /> Admin</a>
           </nav>
@@ -294,6 +296,38 @@ function PatientLanding() {
           <article><b>01</b><strong>Demandez</strong><span>Choisissez un motif et un creneau en ligne.</span></article>
           <article><b>02</b><strong>Confirmez</strong><span>Le cabinet valide votre rendez-vous.</span></article>
           <article><b>03</b><strong>Souriez</strong><span>Recevez des soins adaptes et expliques.</span></article>
+        </div>
+      </section>
+
+      <section id="localisation" className="location-section">
+        <div className="location-copy">
+          <p className="eyebrow">Nous trouver</p>
+          <h2>Le cabinet au coeur de Menzel Temime.</h2>
+          <p>Retrouvez le cabinet du Dr Firas Sayari et preparez facilement votre trajet avant votre rendez-vous.</p>
+          <address className="location-address">
+            <MapPin />
+            <span>
+              <strong>Dr Firas Sayari - Dentiste</strong>
+              Avenue Habib Bourguiba<br />
+              Menzel Temime 8080, Tunisie
+            </span>
+          </address>
+          <a
+            className="location-link"
+            href="https://share.google/WlPP5BckJKMfVinDj"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <MapPin /> Ouvrir l'itineraire
+          </a>
+        </div>
+        <div className="location-map">
+          <iframe
+            loading="lazy"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=10.9864%2C36.7767%2C10.9999%2C36.7850&amp;layer=mapnik&amp;marker=36.7808512%2C10.9931998"
+            title="Localisation du cabinet Dr Firas Sayari"
+          />
+          <p>Plan fourni par OpenStreetMap, sans cle API requise.</p>
         </div>
       </section>
     </main>

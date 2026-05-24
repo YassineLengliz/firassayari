@@ -777,6 +777,114 @@ output.error,
   line-height: 1.5;
 }
 
+.location-section {
+  align-items: stretch;
+  background: #f3f9fb;
+  display: grid;
+  gap: clamp(1.4rem, 4vw, 3rem);
+  grid-template-columns: minmax(19rem, 0.8fr) minmax(30rem, 1.2fr);
+  margin: auto;
+  max-width: 92rem;
+  padding: clamp(3.2rem, 7vw, 5.6rem) clamp(1rem, 3vw, 2rem);
+  scroll-margin-top: 5.35rem;
+}
+
+.location-copy {
+  align-content: center;
+  display: grid;
+}
+
+.location-copy h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+  margin: 0.65rem 0 0.9rem;
+}
+
+.location-copy > p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.62;
+  margin: 0 0 1.45rem;
+}
+
+.location-address {
+  align-items: start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  display: flex;
+  font-style: normal;
+  gap: 0.9rem;
+  line-height: 1.55;
+  margin-bottom: 1.2rem;
+  padding: 1rem 1.05rem;
+}
+
+.location-address svg {
+  color: var(--coral);
+  flex: 0 0 auto;
+  margin-top: 0.18rem;
+}
+
+.location-address span {
+  color: var(--muted);
+  display: block;
+}
+
+.location-address strong {
+  color: var(--ink);
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.location-link {
+  align-items: center;
+  background: var(--leaf);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 720;
+  gap: 0.48rem;
+  justify-self: start;
+  min-height: 3rem;
+  padding: 0.7rem 1.2rem;
+}
+
+.location-link svg {
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.location-map {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  min-height: 27rem;
+  overflow: hidden;
+  padding: 0.55rem;
+}
+
+.location-map iframe {
+  border: 0;
+  border-radius: 20px;
+  display: block;
+  height: calc(100% - 2.4rem);
+  min-height: 24rem;
+  width: 100%;
+}
+
+.location-map p {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 2.4rem;
+  margin: 0;
+  padding: 0 0.5rem;
+}
+
 .admin-login {
   background: linear-gradient(135deg, #e8f2ed, #fbfcfa 48%, #f5e9dd);
   display: grid;
@@ -1277,6 +1385,10 @@ output.error,
   .patient-path {
     grid-template-columns: 1fr;
   }
+
+  .location-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1294,7 +1406,8 @@ output.error,
 
   .hero-shell,
   .booking-section,
-  .booking-workspace {
+  .booking-workspace,
+  .location-section {
     grid-template-columns: 1fr;
   }
 
@@ -1329,6 +1442,14 @@ output.error,
 
   .path-steps article {
     min-height: 0;
+  }
+
+  .location-map {
+    min-height: 23rem;
+  }
+
+  .location-map iframe {
+    min-height: 20rem;
   }
 
   .admin-shell {
