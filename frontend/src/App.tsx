@@ -11,10 +11,12 @@ import {
   LogIn,
   LogOut,
   MapPin,
+  Mic,
   Search,
   ShieldCheck,
   SmilePlus,
   Sparkles,
+  Square,
   Trash2,
   UserRoundPlus,
   Users
@@ -23,7 +25,7 @@ import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const savedTokenKey = "firassayari-token";
@@ -48,6 +50,36 @@ type Reminder = { id: string; channel: string; target: string; status: string; m
 type PlatformStats = { clinics: number; activeSubscriptions: number; doctors: number; monthlyRecurringRevenueCents: number; auditEvents24h: number };
 type InvoicePreview = { number: string; patientName: string; amountCents: number; pdfStatus: string };
 type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
+type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
+
+type RecognitionResult = {
+  isFinal: boolean;
+  0?: { transcript: string };
+};
+
+type RecognitionEvent = {
+  results: ArrayLike<RecognitionResult>;
+};
+
+type RecognitionErrorEvent = {
+  error: string;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: ((event: RecognitionErrorEvent) => void) | null;
+  onresult: ((event: RecognitionEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechEnabledWindow = Window & {
+  SpeechRecognition?: new () => BrowserSpeechRecognition;
+  webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+};
 
 const adminPages: Array<{ page: AdminPage; href: string; label: string; icon: ReactNode }> = [
   { page: "dashboard", href: "/admin", label: "Tableau", icon: <Activity /> },
@@ -741,14 +773,79 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
   const [rawDictation, setRawDictation] = useState("");
   const [note, setNote] = useState<StructuredMedicalNote | null>(null);
   const [consultation, setConsultation] = useState("");
+  const [speechStatus, setSpeechStatus] = useState<SpeechStatus>("idle");
+  const [speechMessage, setSpeechMessage] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const dictationBeforeSpeechRef = useRef("");
 
   useEffect(() => {
     if (!patientId && patients[0]) setPatientId(patients[0].id);
   }, [patientId, patients]);
 
+  useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  function toggleRecording() {
+    if (speechStatus === "listening") {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const speechWindow = window as SpeechEnabledWindow;
+    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setSpeechStatus("unsupported");
+      setSpeechMessage("La transcription vocale n'est pas disponible dans ce navigateur. Utilisez Chrome ou Edge, ou saisissez la dictee.");
+      return;
+    }
+
+    const recognition = new Recognition();
+    dictationBeforeSpeechRef.current = rawDictation.trim();
+    recognitionRef.current = recognition;
+    recognition.lang = "fr-FR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let currentInterim = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript.trim() ?? "";
+        if (event.results[index].isFinal) {
+          finalTranscript = `${finalTranscript} ${transcript}`.trim();
+        } else {
+          currentInterim = `${currentInterim} ${transcript}`.trim();
+        }
+      }
+      setInterimTranscript(currentInterim);
+      setRawDictation(joinText(dictationBeforeSpeechRef.current, finalTranscript));
+    };
+    recognition.onerror = (event) => {
+      setSpeechStatus("error");
+      setSpeechMessage(speechRecognitionError(event.error));
+      setInterimTranscript("");
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setSpeechStatus((current) => current === "error" ? current : "idle");
+      setInterimTranscript("");
+    };
+
+    try {
+      recognition.start();
+      setSpeechStatus("listening");
+      setSpeechMessage("");
+      setInterimTranscript("");
+    } catch {
+      recognitionRef.current = null;
+      setSpeechStatus("error");
+      setSpeechMessage("Impossible de demarrer le microphone. Verifiez son autorisation dans le navigateur.");
+    }
+  }
+
   async function structure() {
     try {
       setNote(await api<StructuredMedicalNote>("/api/ai/structure-dictation", { ...auth(token), method: "POST", body: JSON.stringify({ rawText: rawDictation }) }));
+      setConsultation("");
     } catch (error) {
       setConsultation(readError(error));
     }
@@ -763,7 +860,48 @@ function DictationTool({ token, patients }: { token: string; patients: PatientSu
     }
   }
 
-  return <Panel title="Consultation IA" subtitle="Structuration de dictee et note dentaire."><div className="stack-form"><label>Patient<select value={patientId} onChange={(event) => setPatientId(event.target.value)}>{patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}</select></label><label>Dictee<textarea value={rawDictation} onChange={(event) => setRawDictation(event.target.value)} /></label><div className="inline-actions"><button type="button" onClick={structure}><Activity /> Structurer</button><button type="button" onClick={saveConsultation} disabled={!patientId}><FileText /> Enregistrer</button></div>{note ? <article className="note"><strong>{note.reason}</strong><span>{note.symptoms.join(" | ")}</span><small>{note.treatmentPlan}</small></article> : null}{consultation ? <output>{consultation}</output> : null}</div></Panel>;
+  const listening = speechStatus === "listening";
+
+  return (
+    <Panel title="Consultation IA" subtitle="Dictee vocale et structuration de note dentaire.">
+      <div className="stack-form">
+        <label>
+          Patient
+          <select value={patientId} onChange={(event) => setPatientId(event.target.value)}>
+            {patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}
+          </select>
+        </label>
+        <label className="dictation-field">
+          <span className="dictation-heading">
+            Dictee
+            {listening ? <small><i /> Enregistrement en cours</small> : null}
+          </span>
+          <textarea
+            disabled={listening}
+            placeholder="Decrivez les symptomes et les soins, ou utilisez le microphone."
+            rows={8}
+            value={rawDictation}
+            onChange={(event) => setRawDictation(event.target.value)}
+          />
+        </label>
+        <div className="dictation-recorder">
+          <button className={listening ? "recording-command" : undefined} type="button" onClick={toggleRecording}>
+            {listening ? <Square /> : <Mic />}
+            {listening ? "Arreter" : "Dicter la consultation"}
+          </button>
+          <p>La reconnaissance vocale est fournie par votre navigateur; verifiez le texte avant enregistrement.</p>
+        </div>
+        {interimTranscript ? <p className="live-transcript"><strong>Ecoute :</strong> {interimTranscript}</p> : null}
+        {speechMessage ? <output className={speechStatus === "idle" || listening ? undefined : "error"}>{speechMessage}</output> : null}
+        <div className="inline-actions">
+          <button type="button" onClick={structure} disabled={listening || rawDictation.trim().length < 3}><Activity /> Structurer</button>
+          <button type="button" onClick={saveConsultation} disabled={listening || !patientId || rawDictation.trim().length < 3}><FileText /> Enregistrer</button>
+        </div>
+        {note ? <article className="note"><strong>{note.reason}</strong><span>{note.symptoms.join(" | ")}</span><small>{note.treatmentPlan}</small></article> : null}
+        {consultation ? <output>{consultation}</output> : null}
+      </div>
+    </Panel>
+  );
 }
 
 function InvoiceTool({ token }: { token: string }) {
@@ -825,6 +963,18 @@ async function api<T = unknown>(path: string, options: RequestInit = {}): Promis
 
 function csv(value: string) {
   return value.split(",").map((part) => part.trim()).filter(Boolean);
+}
+
+function joinText(first: string, second: string) {
+  return [first, second].filter(Boolean).join(" ").trim();
+}
+
+function speechRecognitionError(error: string) {
+  if (error === "not-allowed" || error === "service-not-allowed") return "Acces au microphone refuse. Autorisez le microphone pour dicter la consultation.";
+  if (error === "no-speech") return "Aucune parole detectee. Relancez la dictee et parlez pres du microphone.";
+  if (error === "audio-capture") return "Aucun microphone disponible sur cet appareil.";
+  if (error === "network") return "Le service de reconnaissance vocale du navigateur est indisponible.";
+  return "La transcription vocale a echoue. Vous pouvez recommencer ou saisir le texte.";
 }
 
 function money(cents = 0) {
