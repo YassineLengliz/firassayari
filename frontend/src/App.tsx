@@ -28,7 +28,7 @@ import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction"
 import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import frLocale from "@fullcalendar/core/locales/fr";
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const savedTokenKey = "firassayari-token";
@@ -422,6 +422,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string, user: SessionUser) =
 }
 
 function AdminWorkspace({ token, user, onLogout }: { token: string; user: SessionUser; onLogout: () => void }) {
+  const [page, setPage] = useState<AdminPage>(() => currentAdminPage());
   const [patients, setPatients] = useState<PatientSummary[]>([]);
   const [appointments, setAppointments] = useState<AppointmentSummary[]>([]);
   const [finance, setFinance] = useState<FinanceSummary | null>(null);
@@ -430,36 +431,95 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   const [platform, setPlatform] = useState<PlatformStats | null>(null);
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
-  const [refreshId, setRefreshId] = useState(0);
+  const [appointmentsRefreshId, setAppointmentsRefreshId] = useState(0);
+  const [patientsRefreshId, setPatientsRefreshId] = useState(0);
+  const [financeRefreshId, setFinanceRefreshId] = useState(0);
+  const [remindersRefreshId, setRemindersRefreshId] = useState(0);
+  const fetchedAppointmentsVersion = useRef(-1);
+  const fetchedPatientsKey = useRef("");
+  const fetchedFinanceVersion = useRef(-1);
+  const fetchedFinanceActivityVersion = useRef(-1);
+  const fetchedRemindersVersion = useRef(-1);
+  const fetchedPlatform = useRef(false);
 
   useEffect(() => {
-    const options = auth(token);
-    Promise.all([
-      api<AppointmentSummary[]>("/api/appointments", options),
-      api<PatientSummary[]>(`/api/patients${search ? `?search=${encodeURIComponent(search)}` : ""}`, options),
-      api<FinanceSummary>("/api/finance/monthly-summary", options),
-      api<FinanceActivity[]>("/api/finance/activity", options),
-      api<Reminder[]>("/api/notifications/reminders", options)
-    ])
-      .then(([nextAppointments, nextPatients, nextFinance, nextFinanceActivity, nextReminders]) => {
-        setAppointments(nextAppointments);
-        setPatients(nextPatients);
-        setFinance(nextFinance);
-        setFinanceActivity(nextFinanceActivity);
-        setReminders(nextReminders);
-      })
+    const updatePage = () => setPage(currentAdminPage());
+    window.addEventListener("popstate", updatePage);
+    return () => window.removeEventListener("popstate", updatePage);
+  }, []);
+
+  useEffect(() => {
+    if (page !== "dashboard" && page !== "agenda") return;
+    if (fetchedAppointmentsVersion.current === appointmentsRefreshId) return;
+    fetchedAppointmentsVersion.current = appointmentsRefreshId;
+    api<AppointmentSummary[]>("/api/appointments", auth(token))
+      .then(setAppointments)
       .catch((error) => setNotice(readError(error)));
-  }, [refreshId, search, token]);
+  }, [appointmentsRefreshId, page, token]);
 
   useEffect(() => {
-    if (user.role !== "SAAS_ADMIN") return;
-    api<PlatformStats>("/api/admin/platform-stats", auth(token)).then(setPlatform).catch((error) => setNotice(readError(error)));
-  }, [token, user.role]);
+    if (page !== "dashboard" && page !== "patients" && page !== "consultations") return;
+    const searchQuery = page === "patients" ? search.trim() : "";
+    const key = `${patientsRefreshId}:${searchQuery}`;
+    if (fetchedPatientsKey.current === key) return;
 
-  const page = currentAdminPage();
+    const timeout = window.setTimeout(() => {
+      fetchedPatientsKey.current = key;
+      api<PatientSummary[]>(`/api/patients${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ""}`, auth(token))
+        .then(setPatients)
+        .catch((error) => setNotice(readError(error)));
+    }, page === "patients" ? 250 : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [page, patientsRefreshId, search, token]);
+
+  useEffect(() => {
+    if (page !== "dashboard" && page !== "finance") return;
+    if (fetchedFinanceVersion.current === financeRefreshId) return;
+    fetchedFinanceVersion.current = financeRefreshId;
+    api<FinanceSummary>("/api/finance/monthly-summary", auth(token))
+      .then(setFinance)
+      .catch((error) => setNotice(readError(error)));
+  }, [financeRefreshId, page, token]);
+
+  useEffect(() => {
+    if (page !== "finance") return;
+    if (fetchedFinanceActivityVersion.current === financeRefreshId) return;
+    fetchedFinanceActivityVersion.current = financeRefreshId;
+    api<FinanceActivity[]>("/api/finance/activity", auth(token))
+      .then(setFinanceActivity)
+      .catch((error) => setNotice(readError(error)));
+  }, [financeRefreshId, page, token]);
+
+  useEffect(() => {
+    if (page !== "dashboard" && page !== "finance") return;
+    if (fetchedRemindersVersion.current === remindersRefreshId) return;
+    fetchedRemindersVersion.current = remindersRefreshId;
+    api<Reminder[]>("/api/notifications/reminders", auth(token))
+      .then(setReminders)
+      .catch((error) => setNotice(readError(error)));
+  }, [page, remindersRefreshId, token]);
+
+  useEffect(() => {
+    if (user.role !== "SAAS_ADMIN" || (page !== "dashboard" && page !== "finance") || fetchedPlatform.current) return;
+    fetchedPlatform.current = true;
+    api<PlatformStats>("/api/admin/platform-stats", auth(token)).then(setPlatform).catch((error) => setNotice(readError(error)));
+  }, [page, token, user.role]);
+
   const pending = appointments.filter((appointment) => appointment.status === "PENDING").length;
   const title = adminPages.find((route) => route.page === page)?.label ?? "Tableau";
   const todayLabel = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+  function openPage(event: MouseEvent<HTMLAnchorElement>, route: { page: AdminPage; href: string }) {
+    event.preventDefault();
+    window.history.pushState({}, "", route.href);
+    setPage(route.page);
+  }
+
+  function refreshAppointments() {
+    setAppointmentsRefreshId((value) => value + 1);
+    setFinanceRefreshId((value) => value + 1);
+  }
 
   return (
     <main className="admin-shell">
@@ -467,7 +527,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         <a className="doctor-mark" href="/"><BrandLogo /><strong>Dr Firas Sayari<small>Dentiste</small></strong></a>
         <nav aria-label="Administration">
           {adminPages.map((route) => (
-            <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href}>
+            <a key={route.page} className={page === route.page ? "active" : undefined} href={route.href} onClick={(event) => openPage(event, route)}>
               {route.icon}
               {route.label}
             </a>
@@ -492,17 +552,22 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
           </div>
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
-        {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} /> : null}
-        {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
-        {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
-        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} onChanged={() => setRefreshId((value) => value + 1)} /> : null}
+        {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} onOpenPage={(nextPage) => {
+          const route = adminPages.find((item) => item.page === nextPage);
+          if (!route) return;
+          window.history.pushState({}, "", route.href);
+          setPage(route.page);
+        }} /> : null}
+        {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={refreshAppointments} /> : null}
+        {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
+        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
         {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
   );
 }
 
-function AdminOverview({ appointments, patients, finance, reminders, platform, pending }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null; pending: number }) {
+function AdminOverview({ appointments, patients, finance, reminders, platform, pending, onOpenPage }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null; pending: number; onOpenPage: (page: AdminPage) => void }) {
   const pendingAppointments = appointments.filter((appointment) => appointment.status === "PENDING").slice(0, 4);
   const upcoming = useMemo(() => [...appointments].sort((left, right) => left.startsAt.localeCompare(right.startsAt)).slice(0, 5), [appointments]);
 
@@ -516,10 +581,10 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
       </section>
 
       <section className="quick-actions" aria-label="Actions rapides">
-        <a href="/admin/agenda"><CalendarCheck /> Agenda</a>
-        <a href="/admin/patients"><Users /> Patients</a>
-        <a href="/admin/consultations"><FileText /> Consultation</a>
-        <a href="/admin/finance"><CreditCard /> Finance</a>
+        <a href="/admin/agenda" onClick={(event) => { event.preventDefault(); onOpenPage("agenda"); }}><CalendarCheck /> Agenda</a>
+        <a href="/admin/patients" onClick={(event) => { event.preventDefault(); onOpenPage("patients"); }}><Users /> Patients</a>
+        <a href="/admin/consultations" onClick={(event) => { event.preventDefault(); onOpenPage("consultations"); }}><FileText /> Consultation</a>
+        <a href="/admin/finance" onClick={(event) => { event.preventDefault(); onOpenPage("finance"); }}><CreditCard /> Finance</a>
       </section>
 
       <section className="admin-grid dashboard-grid">
