@@ -1111,15 +1111,17 @@ function ConsultationsPage({ token, patients, appointments, onChanged }: { token
 function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token: string }) {
   const [patientId, setPatientId] = useState("");
   const [patientQuery, setPatientQuery] = useState("");
-  const [content, setContent] = useState("");
+  const [medicines, setMedicines] = useState([""]);
   const [generatedUrl, setGeneratedUrl] = useState("");
   const [savedOrdonnances, setSavedOrdonnances] = useState<OrdonnanceSummary[]>([]);
   const [message, setMessage] = useState("");
+  const [showPatientResults, setShowPatientResults] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectedPatient = patients.find((patient) => patient.id === patientId) ?? patients[0] ?? null;
+  const content = medicines.map((medicine) => medicine.trim()).filter(Boolean).join("\n");
   const patientResults = useMemo(() => {
     const query = patientQuery.trim().toLowerCase();
-    if (query.length < 2) return [];
+    if (!showPatientResults || query.length < 2) return [];
     return patients.filter((patient) => {
       const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
       return fullName.includes(query) || patient.phone.toLowerCase().includes(query);
@@ -1139,6 +1141,19 @@ function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token
   function pickPatient(patient: PatientSummary) {
     setPatientId(patient.id);
     setPatientQuery(`${patient.firstName} ${patient.lastName}`.trim());
+    setShowPatientResults(false);
+  }
+
+  function updateMedicine(index: number, value: string) {
+    setMedicines((current) => current.map((medicine, itemIndex) => itemIndex === index ? value : medicine));
+  }
+
+  function addMedicine() {
+    setMedicines((current) => [...current, ""]);
+  }
+
+  function removeMedicine(index: number) {
+    setMedicines((current) => current.length === 1 ? [""] : current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function generateOrdonnance(event?: FormEvent<HTMLFormElement>) {
@@ -1228,7 +1243,7 @@ function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token
           <label>
             Patient
             <span className="patient-search-field">
-              <input required value={patientQuery} onChange={(event) => { setPatientQuery(event.target.value); setPatientId(""); }} placeholder="Tapez le nom du patient" />
+              <input required value={patientQuery} onFocus={() => setShowPatientResults(true)} onChange={(event) => { setPatientQuery(event.target.value); setPatientId(""); setShowPatientResults(true); }} placeholder="Tapez le nom du patient" />
               {patientResults.length ? (
                 <div className="patient-search-results">
                   {patientResults.map((patient) => (
@@ -1241,10 +1256,19 @@ function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token
               ) : null}
             </span>
           </label>
-          <label>
-            Texte de l'ordonnance
-            <textarea required value={content} onChange={(event) => setContent(event.target.value)} placeholder="Ex : Amoxicilline 1g, 1 comprimé matin et soir pendant 7 jours..." />
-          </label>
+          <div className="medicine-fields">
+            <span>Médicaments / lignes d'ordonnance</span>
+            {medicines.map((medicine, index) => (
+              <label key={index}>
+                Médicament {index + 1}
+                <div>
+                  <input required={index === 0} value={medicine} onChange={(event) => updateMedicine(index, event.target.value)} placeholder="Ex : Amoxicilline 1g, matin et soir pendant 7 jours" />
+                  <button className="quiet-command" disabled={medicines.length === 1} type="button" onClick={() => removeMedicine(index)}><X /> Retirer</button>
+                </div>
+              </label>
+            ))}
+            <button className="quiet-command" type="button" onClick={addMedicine}><ClipboardPlus /> Ajouter une ligne</button>
+          </div>
           <button disabled={!selectedPatient || !content.trim()}><ClipboardPlus /> Générer</button>
           {message ? <output>{message}</output> : null}
         </form>

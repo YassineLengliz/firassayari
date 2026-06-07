@@ -1652,6 +1652,29 @@ output.error,
   min-height: 14rem;
 }
 
+.medicine-fields {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.medicine-fields > span {
+  color: var(--muted);
+  font-size: 0.83rem;
+  font-weight: 720;
+}
+
+.medicine-fields label > div {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.medicine-fields .quiet-command {
+  min-height: 2.65rem;
+  white-space: nowrap;
+}
+
 .ordonnance-preview {
   display: grid;
   gap: 0.85rem;
