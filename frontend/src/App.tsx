@@ -54,7 +54,7 @@ type PlatformStats = { clinics: number; activeSubscriptions: number; doctors: nu
 type InvoicePreview = { number: string; patientName: string; amountCents: number; pdfStatus: string };
 type FinanceActivity = { id: string; number: string; patientName: string; amountCents: number; paidAt: string | null; paymentMethod: string | null; createdAt: string };
 type RevenueRange = "24h" | "7d" | "30d" | "month";
-type RevenueBucket = { label: string; start: string; end: string; paidCents: number; unpaidCents: number; cashCents: number; cardCents: number; invoices: number };
+type RevenueBucket = { label: string; start: string; end: string; paidCents: number; unpaidCents: number; cashCents: number; invoices: number };
 type RevenueSeries = { range: RevenueRange; from: string; to: string; buckets: RevenueBucket[] };
 type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
 type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
@@ -1121,7 +1121,6 @@ function FinancePage({ token, finance, activity, revenueSeries, revenueRange, on
         <Metric icon={<CreditCard />} label="Encaissé" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} opération(s)`} />
         <Metric icon={<CreditCard />} label="À encaisser" value={money(finance?.unpaidCents)} detail="À relancer" />
         <Metric icon={<CreditCard />} label="Paiements espèces" value={money(finance?.payments.cashCents)} detail="Recettes du mois" />
-        <Metric icon={<CreditCard />} label="Paiements carte" value={money(finance?.payments.cardCents)} detail="Recettes du mois" />
       </section>
       <RevenueCharts series={revenueSeries} range={revenueRange} onRangeChange={onRevenueRangeChange} />
       <section className="admin-grid finance-grid">
@@ -1140,9 +1139,8 @@ function RevenueCharts({ series, range, onRangeChange }: { series: RevenueSeries
   const totals = buckets.reduce((summary, bucket) => ({
     paidCents: summary.paidCents + bucket.paidCents,
     unpaidCents: summary.unpaidCents + bucket.unpaidCents,
-    cashCents: summary.cashCents + bucket.cashCents,
-    cardCents: summary.cardCents + bucket.cardCents
-  }), { paidCents: 0, unpaidCents: 0, cashCents: 0, cardCents: 0 });
+    cashCents: summary.cashCents + bucket.cashCents
+  }), { paidCents: 0, unpaidCents: 0, cashCents: 0 });
 
   return (
     <Panel title="Courbes de revenus" subtitle="Filtrez les encaissements par période.">
@@ -1160,13 +1158,12 @@ function RevenueCharts({ series, range, onRangeChange }: { series: RevenueSeries
         <LineChart title="Encaissé" value={money(totals.paidCents)} buckets={buckets} field="paidCents" color="#0b7566" />
         <LineChart title="À encaisser" value={money(totals.unpaidCents)} buckets={buckets} field="unpaidCents" color="#e07850" />
         <LineChart title="Espèces" value={money(totals.cashCents)} buckets={buckets} field="cashCents" color="#2f6f9f" />
-        <LineChart title="Carte" value={money(totals.cardCents)} buckets={buckets} field="cardCents" color="#7b5bbd" />
       </div>
     </Panel>
   );
 }
 
-function LineChart({ title, value, buckets, field, color }: { title: string; value: string; buckets: RevenueBucket[]; field: keyof Pick<RevenueBucket, "paidCents" | "unpaidCents" | "cashCents" | "cardCents">; color: string }) {
+function LineChart({ title, value, buckets, field, color }: { title: string; value: string; buckets: RevenueBucket[]; field: keyof Pick<RevenueBucket, "paidCents" | "unpaidCents" | "cashCents">; color: string }) {
   const width = 320;
   const height = 132;
   const padding = 12;

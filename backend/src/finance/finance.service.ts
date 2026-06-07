@@ -28,7 +28,7 @@ export class FinanceService {
       invoices: invoices.length,
       payments: {
         cashCents: paid.filter((invoice) => invoice.paymentMethod === "CASH").reduce((total, invoice) => total + invoice.amountCents, 0),
-        cardCents: paid.filter((invoice) => invoice.paymentMethod === "CARD").reduce((total, invoice) => total + invoice.amountCents, 0)
+        cardCents: 0
       }
     };
   }
@@ -69,7 +69,6 @@ export class FinanceService {
         paidCents: 0,
         unpaidCents: 0,
         cashCents: 0,
-        cardCents: 0,
         invoices: 0
       };
     });
@@ -82,7 +81,6 @@ export class FinanceService {
       if (invoice.paidAt) {
         bucket.paidCents += invoice.amountCents;
         if (invoice.paymentMethod === "CASH") bucket.cashCents += invoice.amountCents;
-        if (invoice.paymentMethod === "CARD") bucket.cardCents += invoice.amountCents;
       } else {
         bucket.unpaidCents += invoice.amountCents;
       }
