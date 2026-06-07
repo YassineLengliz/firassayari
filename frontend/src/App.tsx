@@ -1109,15 +1109,28 @@ function ConsultationsPage({ token, patients, appointments, onChanged }: { token
 
 function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
   const [patientId, setPatientId] = useState("");
+  const [patientQuery, setPatientQuery] = useState("");
   const [content, setContent] = useState("");
   const [generatedUrl, setGeneratedUrl] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectedPatient = patients.find((patient) => patient.id === patientId) ?? patients[0] ?? null;
+  const patientResults = useMemo(() => {
+    const query = patientQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    return patients.filter((patient) => {
+      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+      return fullName.includes(query) || patient.phone.toLowerCase().includes(query);
+    }).slice(0, 8);
+  }, [patientQuery, patients]);
 
   useEffect(() => {
-    if (!patientId && patients[0]) setPatientId(patients[0].id);
     if (patientId && !patients.some((patient) => patient.id === patientId)) setPatientId(patients[0]?.id ?? "");
   }, [patientId, patients]);
+
+  function pickPatient(patient: PatientSummary) {
+    setPatientId(patient.id);
+    setPatientQuery(`${patient.firstName} ${patient.lastName}`.trim());
+  }
 
   async function generateOrdonnance(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -1191,9 +1204,19 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
         <form className="stack-form ordonnance-form" onSubmit={generateOrdonnance}>
           <label>
             Patient
-            <select value={selectedPatient?.id ?? ""} onChange={(event) => setPatientId(event.target.value)}>
-              {patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}
-            </select>
+            <span className="patient-search-field">
+              <input required value={patientQuery} onChange={(event) => { setPatientQuery(event.target.value); setPatientId(""); }} placeholder="Tapez le nom du patient" />
+              {patientResults.length ? (
+                <div className="patient-search-results">
+                  {patientResults.map((patient) => (
+                    <button key={patient.id} type="button" onClick={() => pickPatient(patient)}>
+                      <strong>{patient.firstName} {patient.lastName}</strong>
+                      <span>{patient.phone || "Téléphone non renseigné"}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </span>
           </label>
           <label>
             Texte de l'ordonnance
