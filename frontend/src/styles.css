@@ -1082,6 +1082,27 @@ output.error,
   grid-template-columns: minmax(34rem, 1fr) minmax(19rem, 22rem);
 }
 
+.agenda-full-page {
+  grid-template-columns: 1fr;
+}
+
+.agenda-full-page .panel {
+  min-height: calc(100svh - 8.5rem);
+}
+
+.agenda-full-page .cabinet-calendar {
+  min-height: calc(100svh - 14rem);
+}
+
+.cabinet-calendar .fc .fc-highlight {
+  background: rgba(224, 120, 80, 0.18);
+}
+
+.cabinet-calendar .fc .fc-timegrid-slot,
+.cabinet-calendar .fc .fc-timegrid-col {
+  cursor: crosshair;
+}
+
 .agenda-side {
   display: grid;
   gap: 1rem;
@@ -1292,6 +1313,78 @@ output.error,
   overflow-y: auto;
   padding: clamp(1rem, 2.5vw, 1.5rem);
   width: 100%;
+}
+
+.agenda-create-modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 22px 70px rgba(12, 29, 39, 0.28);
+  display: grid;
+  gap: 1rem;
+  max-height: calc(100svh - 2rem);
+  max-width: 38rem;
+  overflow: visible;
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  width: 100%;
+}
+
+.agenda-create-modal > header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.agenda-create-modal h2 {
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+  margin: 0.25rem 0 0;
+}
+
+.agenda-create-modal textarea {
+  min-height: 6rem;
+}
+
+.patient-search-field {
+  position: relative;
+}
+
+.patient-search-results {
+  background: #fff;
+  border: 1px solid #dce6df;
+  border-radius: 8px;
+  box-shadow: 0 18px 38px rgba(25, 53, 47, 0.14);
+  display: grid;
+  gap: 0.2rem;
+  left: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 30;
+}
+
+.patient-search-results button {
+  background: #f8faf8;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--ink);
+  display: grid;
+  gap: 0.14rem;
+  justify-content: stretch;
+  min-height: 0;
+  padding: 0.58rem 0.65rem;
+  text-align: left;
+}
+
+.patient-search-results button:hover {
+  border-color: #e07850;
+}
+
+.patient-search-results span {
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .patient-modal > header {

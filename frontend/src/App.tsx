@@ -24,9 +24,9 @@ import {
   X
 } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
-import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
+import type { DateSelectArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import frLocale from "@fullcalendar/core/locales/fr";
 import { FormEvent, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -622,13 +622,11 @@ function AdminOverview({ appointments, patients, finance, reminders, platform, p
 }
 
 function AgendaPage({ appointments, token, onChanged }: { appointments: AppointmentSummary[]; token: string; onChanged: () => void }) {
-  const [draftDate, setDraftDate] = useState(tomorrowDate());
-  const [draftTime, setDraftTime] = useState("10:00");
+  const [draftRange, setDraftRange] = useState<{ startsAt: Date; endsAt: Date } | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
   const calendarAppointments = appointments.filter((appointment) => appointment.status === "CONFIRMED" || appointment.status === "COMPLETED");
-  const pendingAppointments = appointments.filter((appointment) => appointment.status === "PENDING");
 
   useEffect(() => {
     if (selectedId && !selectedAppointment) setSelectedId("");
@@ -654,10 +652,9 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
     }
   }
 
-  function pickDate(info: DateClickArg) {
-    setDraftDate(dateInput(info.date));
-    setDraftTime(timeInput(info.date));
-    setMessage("Creneau choisi pour le nouveau rendez-vous.");
+  function createFromSelection(info: DateSelectArg) {
+    setDraftRange({ startsAt: info.start, endsAt: info.end });
+    setMessage("");
   }
 
   function selectAppointment(info: EventClickArg) {
@@ -665,8 +662,8 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
   }
 
   return (
-    <section className="admin-page agenda-page">
-          <Panel title="Agenda du cabinet" subtitle="Rendez-vous confirmés et consultations terminées.">
+    <section className="admin-page agenda-page agenda-full-page">
+      <Panel title="Agenda du cabinet" subtitle="Sélectionnez une plage horaire directement dans le calendrier pour ajouter un rendez-vous.">
         <div className="cabinet-calendar">
           <FullCalendar
             plugins={[timeGridPlugin, interactionPlugin]}
@@ -681,7 +678,10 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
             slotLabelInterval="00:30:00"
             slotMinTime="07:00:00"
             slotMaxTime="20:00:00"
-            dateClick={pickDate}
+            selectable
+            selectMirror
+            unselectAuto={false}
+            select={createFromSelection}
             eventClick={selectAppointment}
             eventDrop={moveAppointment}
             editable
@@ -699,12 +699,138 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
         </div>
         {message ? <output>{message}</output> : null}
       </Panel>
-      <section className="agenda-side">
-        <PendingAppointments appointments={pendingAppointments} token={token} onChanged={onChanged} onOpen={setSelectedId} />
-        <CreateAppointment token={token} onCreated={onChanged} selectedDate={draftDate} selectedTime={draftTime} />
-      </section>
       {selectedAppointment ? <PatientRecordModal appointment={selectedAppointment} patientId={selectedAppointment.patientId} token={token} onClose={() => setSelectedId("")} onChanged={onChanged} /> : null}
+      {draftRange ? <AgendaCreateModal range={draftRange} token={token} onClose={() => setDraftRange(null)} onCreated={() => { setDraftRange(null); onChanged(); }} /> : null}
     </section>
+  );
+}
+
+function AgendaCreateModal({ range, token, onClose, onCreated }: { range: { startsAt: Date; endsAt: Date }; token: string; onClose: () => void; onCreated: () => void }) {
+  const [patientQuery, setPatientQuery] = useState("");
+  const [patientResults, setPatientResults] = useState<PatientSummary[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientSummary | null>(null);
+  const [phone, setPhone] = useState("");
+  const [reason, setReason] = useState("Consultation");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const query = patientQuery.trim();
+    setSelectedPatient((current) => current && `${current.firstName} ${current.lastName}`.trim() === query ? current : null);
+    if (query.length < 2) {
+      setPatientResults([]);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      api<PatientSummary[]>(`/api/patients?search=${encodeURIComponent(query)}`, auth(token))
+        .then((results) => setPatientResults(results.slice(0, 5)))
+        .catch((error) => setMessage(readError(error)));
+    }, 180);
+
+    return () => window.clearTimeout(timeout);
+  }, [patientQuery, token]);
+
+  function pickPatient(patient: PatientSummary) {
+    setSelectedPatient(patient);
+    setPatientQuery(`${patient.firstName} ${patient.lastName}`.trim());
+    setPhone(patient.phone);
+    setPatientResults([]);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const patientName = patientQuery.trim();
+    if (!patientName) {
+      setMessage("Indiquez le nom du patient.");
+      return;
+    }
+
+    try {
+      let patientId = selectedPatient?.id;
+      if (!patientId) {
+        const name = splitDisplayName(patientName);
+        const patient = await api<PatientSummary>("/api/patients", {
+          ...auth(token),
+          method: "POST",
+          body: JSON.stringify({
+            firstName: name.firstName,
+            lastName: name.lastName,
+            phone,
+            email: "",
+            address: "",
+            medicalHistory: "",
+            allergies: [],
+            chronicConditions: []
+          })
+        });
+        patientId = patient.id;
+      }
+
+      await api("/api/appointments", {
+        ...auth(token),
+        method: "POST",
+        body: JSON.stringify({
+          patientId,
+          patientName,
+          startsAt: range.startsAt.toISOString(),
+          endsAt: range.endsAt.toISOString(),
+          status: "CONFIRMED",
+          reason,
+          paidAmountCents: paidAmount.trim() ? Math.round(Number(paidAmount) * 100) : undefined
+        })
+      });
+      onCreated();
+    } catch (error) {
+      setMessage(readError(error));
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="agenda-create-modal" aria-label="Ajouter un rendez-vous" aria-modal="true" role="dialog">
+        <header>
+          <div>
+            <p className="eyebrow">Nouveau rendez-vous</p>
+            <h2>{formatDateTime(range.startsAt.toISOString())} - {range.endsAt.toLocaleTimeString("fr-FR", { timeStyle: "short" })}</h2>
+          </div>
+          <button className="close-command" type="button" onClick={onClose} aria-label="Fermer"><X /></button>
+        </header>
+        <form className="stack-form" onSubmit={submit}>
+          <label className="patient-search-field">
+            Nom et prénom
+            <input required value={patientQuery} onChange={(event) => setPatientQuery(event.target.value)} placeholder="Commencez à taper le nom" />
+            {patientResults.length ? (
+              <div className="patient-search-results">
+                {patientResults.map((patient) => (
+                  <button key={patient.id} type="button" onClick={() => pickPatient(patient)}>
+                    <strong>{patient.firstName} {patient.lastName}</strong>
+                    <span>{patient.phone || "Téléphone non renseigné"}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
+          <div className="form-pair">
+            <label>
+              Téléphone
+              <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="12 345 678" />
+            </label>
+            <label>
+              Prix payé
+              <input inputMode="decimal" min="0" type="number" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} placeholder="Optionnel" />
+            </label>
+          </div>
+          <label>
+            Consultation / opération
+            <textarea required value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Consultation, opération, soin, contrôle..." />
+          </label>
+          <button><CalendarCheck /> Ajouter le rendez-vous</button>
+          {message ? <output className="error">{message}</output> : null}
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1356,6 +1482,14 @@ function appointmentDateTime(appointment: AppointmentSummary) {
   const startsAt = formatDateTime(appointment.startsAt);
   const endsAt = new Date(appointment.endsAt).toLocaleTimeString("fr-FR", { timeStyle: "short" });
   return `${startsAt} - ${endsAt}`;
+}
+
+function splitDisplayName(value: string) {
+  const [firstName, ...lastNameParts] = value.trim().split(/\s+/);
+  return {
+    firstName: firstName || "Patient",
+    lastName: lastNameParts.join(" ")
+  };
 }
 
 function currentAdminPage(): AdminPage {

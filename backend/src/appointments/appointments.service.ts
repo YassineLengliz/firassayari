@@ -4,7 +4,9 @@ import { ensurePrimaryDoctor, PRIMARY_CLINIC_ID } from "../common/cabinet-record
 import { PrismaService } from "../common/prisma/prisma.service";
 
 type CreateAppointmentInput = Omit<AppointmentSummary, "id" | "patientId" | "doctorName" | "doctorShortName"> & {
+  patientId?: string;
   patientPhone?: string;
+  paidAmountCents?: number | null;
 };
 
 @Injectable()
@@ -50,7 +52,7 @@ export class AppointmentsService {
   async create(input: CreateAppointmentInput): Promise<AppointmentSummary> {
     await ensurePrimaryDoctor(this.prisma);
     await this.assertAvailable(input.startsAt, input.endsAt);
-    const patient = await this.patientForAppointment(input.patientName, input.patientPhone);
+    const patient = await this.patientForAppointment(input.patientName, input.patientPhone, input.patientId);
 
     const appointment = await this.prisma.$transaction(async (transaction) => {
       const created = await transaction.appointment.create({
@@ -65,8 +67,8 @@ export class AppointmentsService {
         },
         include: { patient: true, doctor: true }
       });
-      if (input.status === "CONFIRMED") {
-        await this.recordConfirmationPayment(transaction, created.id, patient.id);
+      if (input.status === "CONFIRMED" && input.paidAmountCents != null) {
+        await this.recordConfirmationPayment(transaction, created.id, patient.id, input.paidAmountCents);
       }
       return created;
     });
@@ -148,7 +150,15 @@ export class AppointmentsService {
     if (!appointment) throw new NotFoundException("Appointment not found");
   }
 
-  private async patientForAppointment(patientName: string, patientPhone = "") {
+  private async patientForAppointment(patientName: string, patientPhone = "", patientId?: string) {
+    if (patientId) {
+      const patient = await this.prisma.patient.findFirst({
+        where: { id: patientId, clinicId: PRIMARY_CLINIC_ID }
+      });
+      if (!patient) throw new NotFoundException("Patient introuvable.");
+      return patient;
+    }
+
     const name = splitPatientName(patientName);
     const existingPatient = await this.prisma.patient.findFirst({
       where: {
@@ -183,7 +193,8 @@ export class AppointmentsService {
   private recordConfirmationPayment(
     transaction: Pick<PrismaService, "invoice">,
     appointmentId: string,
-    patientId: string
+    patientId: string,
+    amountCents = 4000
   ) {
     return transaction.invoice.upsert({
       where: { number: `RDV-${appointmentId}` },
@@ -194,7 +205,7 @@ export class AppointmentsService {
         number: `RDV-${appointmentId}`,
         doctorName: PRIMARY_DOCTOR.fullName,
         doctorShortName: PRIMARY_DOCTOR.shortName,
-        amountCents: 4000,
+        amountCents,
         paidAt: new Date(),
         paymentMethod: "CASH"
       }

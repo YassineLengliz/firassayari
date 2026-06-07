@@ -1,11 +1,15 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
-import { IsDateString, IsIn, IsString } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
 import type { AppointmentStatus } from "@medcabinet/shared";
 import { Roles } from "../auth/roles.decorator";
 import { RbacGuard } from "../auth/rbac.guard";
 import { AppointmentsService } from "./appointments.service";
 
 class CreateAppointmentDto {
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
   @IsString()
   patientName!: string;
 
@@ -20,6 +24,11 @@ class CreateAppointmentDto {
 
   @IsString()
   reason!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  paidAmountCents?: number;
 }
 
 class RequestAppointmentDto {
