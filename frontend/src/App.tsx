@@ -457,7 +457,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   }, []);
 
   useEffect(() => {
-    if (page !== "dashboard" && page !== "agenda") return;
+    if (page !== "dashboard" && page !== "agenda" && page !== "consultations") return;
     let active = true;
     const loadAppointments = () => {
       if (fetchedAppointmentsVersion.current === appointmentsRefreshId) return;
@@ -590,7 +590,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         }} /> : null}
         {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={refreshAppointments} /> : null}
         {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
-        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
+        {page === "consultations" ? <ConsultationsPage token={token} patients={patients} appointments={appointments} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
         {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
@@ -1057,15 +1057,34 @@ function PatientsPage({ patients, token, onChanged }: { patients: PatientSummary
   );
 }
 
-function ConsultationsPage({ token, patients, onChanged }: { token: string; patients: PatientSummary[]; onChanged: () => void }) {
+function ConsultationsPage({ token, patients, appointments, onChanged }: { token: string; patients: PatientSummary[]; appointments: AppointmentSummary[]; onChanged: () => void }) {
   const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [search, setSearch] = useState("");
+  const [todayOnly, setTodayOnly] = useState(false);
+  const todayPatientIds = useMemo(() => {
+    const today = dateInput(new Date());
+    return new Set(appointments.filter((appointment) => appointment.startsAt.startsWith(today) && appointment.status !== "CANCELLED").map((appointment) => appointment.patientId));
+  }, [appointments]);
+  const filteredPatients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return patients.filter((patient) => {
+      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+      const matchesSearch = !query || fullName.includes(query) || patient.phone.toLowerCase().includes(query);
+      const matchesToday = !todayOnly || todayPatientIds.has(patient.id);
+      return matchesSearch && matchesToday;
+    });
+  }, [patients, search, todayOnly, todayPatientIds]);
 
   return (
     <>
       <section className="admin-page consultation-page">
         <DictationTool token={token} patients={patients} onSaved={onChanged} />
         <Panel title="Patients disponibles" subtitle="Ouvrez le dossier pour voir les consultations enregistrées.">
-          <PatientList patients={patients} onSelect={setSelectedPatientId} />
+          <div className="consultation-filters">
+            <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher par nom" /></label>
+            <label className="today-filter"><input checked={todayOnly} onChange={(event) => setTodayOnly(event.target.checked)} type="checkbox" /> Rendez-vous d'aujourd'hui</label>
+          </div>
+          <PatientList patients={filteredPatients} onSelect={setSelectedPatientId} />
         </Panel>
       </section>
       {selectedPatientId ? <PatientRecordModal patientId={selectedPatientId} token={token} onClose={() => setSelectedPatientId("")} onChanged={onChanged} /> : null}
