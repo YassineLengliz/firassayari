@@ -257,7 +257,7 @@ function PatientLanding() {
               </label>
               <label>
                 Telephone
-                <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+216 ..." />
+                <input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="12 345 678" />
               </label>
             </div>
             <label className="booking-reason">
