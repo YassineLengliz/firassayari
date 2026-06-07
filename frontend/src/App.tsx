@@ -459,6 +459,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   const page = currentAdminPage();
   const pending = appointments.filter((appointment) => appointment.status === "PENDING").length;
   const title = adminPages.find((route) => route.page === page)?.label ?? "Tableau";
+  const todayLabel = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <main className="admin-shell">
@@ -472,17 +473,24 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
             </a>
           ))}
         </nav>
-        <button onClick={onLogout}><LogOut /> Deconnexion</button>
+        <div className="admin-sidebar-footer">
+          <span>{user.displayName}</span>
+          <small>{roleLabel(user.role)}</small>
+          <button onClick={onLogout}><LogOut /> Deconnexion</button>
+        </div>
       </aside>
 
       <section className="workspace">
-        <header>
+        <header className="workspace-header">
           <div>
             <p className="eyebrow">{roleLabel(user.role)}</p>
             <h1>{title}</h1>
-            <span>Bonjour {user.displayName}</span>
+            <span>Bonjour {user.displayName} - {todayLabel}</span>
           </div>
-          {page === "patients" ? <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" /></label> : null}
+          <div className="workspace-actions">
+            {page === "patients" ? <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" /></label> : null}
+            <span className="session-chip"><ShieldCheck /> Session active</span>
+          </div>
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
         {page === "dashboard" ? <AdminOverview appointments={appointments} patients={patients} finance={finance} reminders={reminders} platform={platform} pending={pending} /> : null}
@@ -496,19 +504,74 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
 }
 
 function AdminOverview({ appointments, patients, finance, reminders, platform, pending }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null; pending: number }) {
+  const today = dateInput(new Date());
+  const todaysAppointments = appointments.filter((appointment) => appointment.startsAt.startsWith(today));
+  const pendingAppointments = appointments.filter((appointment) => appointment.status === "PENDING").slice(0, 4);
+  const upcoming = useMemo(() => [...appointments].sort((left, right) => left.startsAt.localeCompare(right.startsAt)).slice(0, 5), [appointments]);
+  const nextAppointment = upcoming.find((appointment) => new Date(appointment.startsAt).getTime() >= Date.now()) ?? upcoming[0];
+
   return (
-    <div className="admin-page">
-      <section className="metrics">
-        <Metric icon={<CalendarCheck />} label="Rendez-vous" value={String(appointments.length)} detail={`${pending} demande(s) à confirmer`} />
-        <Metric icon={<Users />} label="Patients" value={String(patients.length)} detail="Dossiers disponibles" />
-        <Metric icon={<CreditCard />} label="Revenu du mois" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
-        <Metric icon={<BellRing />} label="Rappels" value={String(reminders.length)} detail="SMS et email" />
+    <div className="admin-page dashboard-page">
+      <section className="dashboard-hero" aria-label="Synthèse du cabinet">
+        <div>
+          <p className="eyebrow">Pilotage quotidien</p>
+          <h2>Vue claire sur les rendez-vous, patients et encaissements.</h2>
+          <span>{todaysAppointments.length} rendez-vous aujourd'hui - {pending} demande(s) en attente</span>
+        </div>
+        <div className="next-appointment">
+          <small>Prochain passage</small>
+          {nextAppointment ? (
+            <>
+              <strong>{nextAppointment.patientName}</strong>
+              <time>{appointmentDateTime(nextAppointment)}</time>
+            </>
+          ) : <strong>Aucun rendez-vous planifié</strong>}
+        </div>
       </section>
-      <section className="admin-grid">
+
+      <section className="metrics">
+        <Metric icon={<CalendarCheck />} label="Agenda" value={String(appointments.length)} detail={`${pending} à confirmer`} />
+        <Metric icon={<Users />} label="Patients" value={String(patients.length)} detail="Dossiers actifs" />
+        <Metric icon={<CreditCard />} label="Revenu" value={money(finance?.revenueCents)} detail={`${finance?.invoices ?? 0} facture(s)`} />
+        <Metric icon={<BellRing />} label="Rappels" value={String(reminders.length)} detail="Suivi opérationnel" />
+      </section>
+
+      <section className="quick-actions" aria-label="Actions rapides">
+        <a href="/admin/agenda"><CalendarCheck /> Agenda</a>
+        <a href="/admin/patients"><Users /> Patients</a>
+        <a href="/admin/consultations"><FileText /> Consultation</a>
+        <a href="/admin/finance"><CreditCard /> Finance</a>
+      </section>
+
+      <section className="admin-grid dashboard-grid">
         <Panel title="Prochains rendez-vous" subtitle="Aperçu de l'agenda du cabinet.">
-          <AppointmentTimeline appointments={appointments.slice(0, 5)} />
+          <AppointmentTimeline appointments={upcoming} />
         </Panel>
+        <Panel title="Demandes en attente" subtitle="À confirmer avant apparition dans l'agenda.">
+          {!pendingAppointments.length ? <p className="empty">Aucune demande à confirmer.</p> : (
+            <div className="pending-preview">
+              {pendingAppointments.map((appointment) => (
+                <article key={appointment.id}>
+                  <span><Clock3 /> {appointmentDateTime(appointment)}</span>
+                  <strong>{appointment.patientName}</strong>
+                  <small>{appointment.reason}</small>
+                </article>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </section>
+
+      <section className="admin-grid dashboard-grid">
         <OperationsPanel reminders={reminders} platform={platform} />
+        <Panel title="Encaissement" subtitle="Résumé rapide du mois.">
+          <div className="cash-snapshot">
+            <article><span>Encaissé</span><strong>{money(finance?.revenueCents)}</strong></article>
+            <article><span>À encaisser</span><strong>{money(finance?.unpaidCents)}</strong></article>
+            <article><span>Espèces</span><strong>{money(finance?.payments.cashCents)}</strong></article>
+            <article><span>Carte</span><strong>{money(finance?.payments.cardCents)}</strong></article>
+          </div>
+        </Panel>
       </section>
     </div>
   );
