@@ -489,7 +489,6 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
           </div>
           <div className="workspace-actions">
             {page === "patients" ? <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un patient" /></label> : null}
-            <span className="session-chip"><ShieldCheck /> Session active</span>
           </div>
         </header>
         {notice ? <output className="workspace-notice">{notice}</output> : null}
@@ -504,31 +503,11 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
 }
 
 function AdminOverview({ appointments, patients, finance, reminders, platform, pending }: { appointments: AppointmentSummary[]; patients: PatientSummary[]; finance: FinanceSummary | null; reminders: Reminder[]; platform: PlatformStats | null; pending: number }) {
-  const today = dateInput(new Date());
-  const todaysAppointments = appointments.filter((appointment) => appointment.startsAt.startsWith(today));
   const pendingAppointments = appointments.filter((appointment) => appointment.status === "PENDING").slice(0, 4);
   const upcoming = useMemo(() => [...appointments].sort((left, right) => left.startsAt.localeCompare(right.startsAt)).slice(0, 5), [appointments]);
-  const nextAppointment = upcoming.find((appointment) => new Date(appointment.startsAt).getTime() >= Date.now()) ?? upcoming[0];
 
   return (
     <div className="admin-page dashboard-page">
-      <section className="dashboard-hero" aria-label="Synthèse du cabinet">
-        <div>
-          <p className="eyebrow">Pilotage quotidien</p>
-          <h2>Vue claire sur les rendez-vous, patients et encaissements.</h2>
-          <span>{todaysAppointments.length} rendez-vous aujourd'hui - {pending} demande(s) en attente</span>
-        </div>
-        <div className="next-appointment">
-          <small>Prochain passage</small>
-          {nextAppointment ? (
-            <>
-              <strong>{nextAppointment.patientName}</strong>
-              <time>{appointmentDateTime(nextAppointment)}</time>
-            </>
-          ) : <strong>Aucun rendez-vous planifié</strong>}
-        </div>
-      </section>
-
       <section className="metrics">
         <Metric icon={<CalendarCheck />} label="Agenda" value={String(appointments.length)} detail={`${pending} à confirmer`} />
         <Metric icon={<Users />} label="Patients" value={String(patients.length)} detail="Dossiers actifs" />
