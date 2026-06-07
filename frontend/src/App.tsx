@@ -1078,17 +1078,23 @@ function ConsultationsPage({ token, patients, appointments, onChanged }: { token
   return (
     <>
       <section className="admin-page consultation-page">
-        <DictationTool token={token} patients={patients} onSaved={onChanged} />
+        <DictationTool token={token} patients={filteredPatients} patientFilter={<ConsultationFilters search={search} todayOnly={todayOnly} onSearch={setSearch} onTodayOnly={setTodayOnly} />} onSaved={onChanged} />
         <Panel title="Patients disponibles" subtitle="Ouvrez le dossier pour voir les consultations enregistrées.">
-          <div className="consultation-filters">
-            <label className="search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher par nom" /></label>
-            <label className="today-filter"><input checked={todayOnly} onChange={(event) => setTodayOnly(event.target.checked)} type="checkbox" /> Rendez-vous d'aujourd'hui</label>
-          </div>
+          <ConsultationFilters search={search} todayOnly={todayOnly} onSearch={setSearch} onTodayOnly={setTodayOnly} />
           <PatientList patients={filteredPatients} onSelect={setSelectedPatientId} />
         </Panel>
       </section>
       {selectedPatientId ? <PatientRecordModal patientId={selectedPatientId} token={token} onClose={() => setSelectedPatientId("")} onChanged={onChanged} /> : null}
     </>
+  );
+}
+
+function ConsultationFilters({ search, todayOnly, onSearch, onTodayOnly }: { search: string; todayOnly: boolean; onSearch: (value: string) => void; onTodayOnly: (value: boolean) => void }) {
+  return (
+    <div className="consultation-filters">
+      <label className="search"><Search /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Rechercher par nom" /></label>
+      <label className="today-filter"><input checked={todayOnly} onChange={(event) => onTodayOnly(event.target.checked)} type="checkbox" /> Rendez-vous d'aujourd'hui</label>
+    </div>
   );
 }
 
@@ -1218,7 +1224,7 @@ function CreatePatient({ token, onCreated }: { token: string; onCreated: () => v
   return <Panel title="Nouveau patient" subtitle="Coordonnées et informations médicales."><form className="stack-form" onSubmit={submit}><div className="form-pair"><label>Prénom<input required value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} /></label><label>Nom<input required value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} /></label></div><div className="form-pair"><label>Téléphone<input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label></div><label>Adresse<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label><label>Allergies<input value={form.allergies} onChange={(event) => setForm({ ...form, allergies: event.target.value })} placeholder="Pénicilline, AINS" /></label><label>Pathologies chroniques<input value={form.chronicConditions} onChange={(event) => setForm({ ...form, chronicConditions: event.target.value })} /></label><label>Antécédents médicaux<textarea value={form.medicalHistory} onChange={(event) => setForm({ ...form, medicalHistory: event.target.value })} /></label><button><UserRoundPlus /> Créer</button>{message ? <output>{message}</output> : null}</form></Panel>;
 }
 
-function DictationTool({ token, patients, onSaved }: { token: string; patients: PatientSummary[]; onSaved: () => void }) {
+function DictationTool({ token, patients, patientFilter, onSaved }: { token: string; patients: PatientSummary[]; patientFilter?: ReactNode; onSaved: () => void }) {
   const [patientId, setPatientId] = useState("");
   const [rawDictation, setRawDictation] = useState("");
   const [note, setNote] = useState<StructuredMedicalNote | null>(null);
@@ -1234,6 +1240,7 @@ function DictationTool({ token, patients, onSaved }: { token: string; patients: 
 
   useEffect(() => {
     if (!patientId && patients[0]) setPatientId(patients[0].id);
+    if (patientId && !patients.some((patient) => patient.id === patientId)) setPatientId(patients[0]?.id ?? "");
   }, [patientId, patients]);
 
   useEffect(() => {
@@ -1379,6 +1386,7 @@ function DictationTool({ token, patients, onSaved }: { token: string; patients: 
       <div className="stack-form">
         <label>
           Patient
+          {patientFilter}
           <select value={patientId} onChange={(event) => setPatientId(event.target.value)}>
             {patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}
           </select>
