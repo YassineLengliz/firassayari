@@ -101,7 +101,7 @@ export class AppointmentsService {
     return this.summary(appointment);
   }
 
-  async updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentSummary> {
+  async updateStatus(id: string, status: AppointmentStatus, paidAmountCents?: number): Promise<AppointmentSummary> {
     await this.assertExists(id);
     const appointment = await this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.appointment.update({
@@ -109,8 +109,8 @@ export class AppointmentsService {
         data: { status },
         include: { patient: true, doctor: true }
       });
-      if (status === "CONFIRMED") {
-        await this.recordConfirmationPayment(transaction, updated.id, updated.patientId);
+      if (status === "CONFIRMED" && paidAmountCents != null) {
+        await this.recordConfirmationPayment(transaction, updated.id, updated.patientId, paidAmountCents);
       }
       return updated;
     });

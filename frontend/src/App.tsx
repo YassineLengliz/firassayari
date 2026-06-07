@@ -916,6 +916,7 @@ function PendingAppointments({ appointments, token, onChanged, onOpen }: { appoi
 function PatientRecordModal({ patientId, appointment, token, onClose, onChanged }: { patientId: string; appointment?: AppointmentSummary; token: string; onClose: () => void; onChanged: () => void }) {
   const [details, setDetails] = useState<PatientDetails | null>(null);
   const [activeAppointment, setActiveAppointment] = useState(appointment ?? null);
+  const [confirmPrice, setConfirmPrice] = useState("");
   const [message, setMessage] = useState("");
   const [reloadId, setReloadId] = useState(0);
 
@@ -931,13 +932,15 @@ function PatientRecordModal({ patientId, appointment, token, onClose, onChanged 
   async function updateStatus(status: AppointmentStatus) {
     if (!activeAppointment) return;
     try {
+      const paidAmountCents = status === "CONFIRMED" && confirmPrice.trim() ? Math.round(Number(confirmPrice) * 100) : undefined;
       const updated = await api<AppointmentSummary>(`/api/appointments/${activeAppointment.id}/status`, {
         ...auth(token),
         method: "PATCH",
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, paidAmountCents })
       });
       setActiveAppointment(updated);
-      setMessage(status === "CONFIRMED" ? "Confirmé : +40 TND encaissés automatiquement." : `Statut modifié : ${statusLabel(status)}.`);
+      setConfirmPrice("");
+      setMessage(status === "CONFIRMED" ? (paidAmountCents == null ? "Rendez-vous confirmé sans encaissement." : `Confirmé : +${money(paidAmountCents)} encaissés.`) : `Statut modifié : ${statusLabel(status)}.`);
       setReloadId((value) => value + 1);
       onChanged();
     } catch (error) {
@@ -986,7 +989,13 @@ function PatientRecordModal({ patientId, appointment, token, onClose, onChanged 
                 </div>
                 <Status value={activeAppointment.status} />
                 <div className="inline-actions">
-                  {activeAppointment.status === "PENDING" ? <button type="button" onClick={() => void updateStatus("CONFIRMED")}><CheckCircle2 /> Confirmer (+40 TND)</button> : null}
+                  {activeAppointment.status === "PENDING" ? (
+                    <label className="confirm-price-field">
+                      Prix payé
+                      <input inputMode="decimal" min="0" type="number" value={confirmPrice} onChange={(event) => setConfirmPrice(event.target.value)} placeholder="Optionnel" />
+                    </label>
+                  ) : null}
+                  {activeAppointment.status === "PENDING" ? <button type="button" onClick={() => void updateStatus("CONFIRMED")}><CheckCircle2 /> Confirmer</button> : null}
                   {activeAppointment.status === "CONFIRMED" ? <button type="button" onClick={() => void updateStatus("COMPLETED")}><CheckCircle2 /> Marquer terminé</button> : null}
                   {activeAppointment.status !== "CANCELLED" ? <button className="quiet-command" type="button" onClick={() => void updateStatus("CANCELLED")}><X /> Annuler</button> : null}
                   <button className="danger-command" type="button" onClick={() => void removeAppointment()}><Trash2 /> Supprimer</button>

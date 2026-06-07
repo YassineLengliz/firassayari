@@ -1442,6 +1442,14 @@ output.error,
   grid-column: 1 / -1;
 }
 
+.confirm-price-field {
+  max-width: 10rem;
+}
+
+.confirm-price-field input {
+  min-height: 2.45rem;
+}
+
 .record-grid {
   display: grid;
   gap: 0.85rem;

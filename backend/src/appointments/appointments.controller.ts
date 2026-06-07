@@ -59,6 +59,11 @@ class MoveAppointmentDto {
 class UpdateAppointmentStatusDto {
   @IsIn(["CONFIRMED", "PENDING", "CANCELLED", "COMPLETED"])
   status!: AppointmentStatus;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  paidAmountCents?: number;
 }
 
 class PublicAvailabilityDto {
@@ -103,7 +108,7 @@ export class AppointmentsController {
   @UseGuards(RbacGuard)
   @Roles("DOCTOR", "SECRETARY")
   updateStatus(@Param("id") id: string, @Body() dto: UpdateAppointmentStatusDto) {
-    return this.appointments.updateStatus(id, dto.status);
+    return this.appointments.updateStatus(id, dto.status, dto.paidAmountCents);
   }
 
   @Delete(":id")
