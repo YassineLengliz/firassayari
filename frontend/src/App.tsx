@@ -118,7 +118,7 @@ function PatientLanding() {
     to.setDate(to.getDate() + 1);
     setAvailabilityState("loading");
 
-    api<PublicBusyPeriod[]>(`/api/appointments/availability?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
+    const loadAvailability = () => api<PublicBusyPeriod[]>(`/api/appointments/availability?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
       .then((periods) => {
         if (!active) return;
         setBusyPeriods(periods);
@@ -130,8 +130,15 @@ function PatientLanding() {
         setAvailabilityState("error");
       });
 
+    void loadAvailability();
+    const interval = window.setInterval(() => void loadAvailability(), 15_000);
+    const onFocus = () => void loadAvailability();
+    window.addEventListener("focus", onFocus);
+
     return () => {
       active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
   }, [availabilityVersion, form.date]);
 
@@ -176,6 +183,7 @@ function PatientLanding() {
       });
       setRequestState("sent");
       setMessage("Votre demande est enregistree. Le cabinet dentaire confirmera le rendez-vous.");
+      setBusyPeriods((current) => [...current, { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() }]);
       setForm((current) => ({ ...current, patientName: "", phone: "" }));
       setAvailabilityVersion((value) => value + 1);
     } catch (error) {
@@ -450,11 +458,33 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
 
   useEffect(() => {
     if (page !== "dashboard" && page !== "agenda") return;
-    if (fetchedAppointmentsVersion.current === appointmentsRefreshId) return;
-    fetchedAppointmentsVersion.current = appointmentsRefreshId;
-    api<AppointmentSummary[]>("/api/appointments", auth(token))
-      .then(setAppointments)
-      .catch((error) => setNotice(readError(error)));
+    let active = true;
+    const loadAppointments = () => {
+      if (fetchedAppointmentsVersion.current === appointmentsRefreshId) return;
+      fetchedAppointmentsVersion.current = appointmentsRefreshId;
+      api<AppointmentSummary[]>("/api/appointments", auth(token))
+        .then((nextAppointments) => {
+          if (active) setAppointments(nextAppointments);
+        })
+        .catch((error) => {
+          if (active) setNotice(readError(error));
+        });
+    };
+    const refreshAppointments = () => {
+      fetchedAppointmentsVersion.current = -1;
+      loadAppointments();
+    };
+
+    loadAppointments();
+    const interval = window.setInterval(refreshAppointments, 15_000);
+    const onFocus = () => refreshAppointments();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [appointmentsRefreshId, page, token]);
 
   useEffect(() => {
@@ -627,7 +657,7 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
   const [message, setMessage] = useState("");
   const calendarRef = useRef<FullCalendar | null>(null);
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
-  const calendarAppointments = appointments.filter((appointment) => appointment.status === "CONFIRMED" || appointment.status === "COMPLETED");
+  const calendarAppointments = appointments.filter((appointment) => appointment.status !== "CANCELLED");
 
   useEffect(() => {
     if (selectedId && !selectedAppointment) setSelectedId("");
