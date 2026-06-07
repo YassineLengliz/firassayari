@@ -53,6 +53,9 @@ type Reminder = { id: string; channel: string; target: string; status: string; m
 type PlatformStats = { clinics: number; activeSubscriptions: number; doctors: number; monthlyRecurringRevenueCents: number; auditEvents24h: number };
 type InvoicePreview = { number: string; patientName: string; amountCents: number; pdfStatus: string };
 type FinanceActivity = { id: string; number: string; patientName: string; amountCents: number; paidAt: string | null; paymentMethod: string | null; createdAt: string };
+type RevenueRange = "24h" | "7d" | "30d" | "month";
+type RevenueBucket = { label: string; start: string; end: string; paidCents: number; unpaidCents: number; cashCents: number; cardCents: number; invoices: number };
+type RevenueSeries = { range: RevenueRange; from: string; to: string; buckets: RevenueBucket[] };
 type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
 type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
 
@@ -435,6 +438,8 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   const [appointments, setAppointments] = useState<AppointmentSummary[]>([]);
   const [finance, setFinance] = useState<FinanceSummary | null>(null);
   const [financeActivity, setFinanceActivity] = useState<FinanceActivity[]>([]);
+  const [revenueSeries, setRevenueSeries] = useState<RevenueSeries | null>(null);
+  const [revenueRange, setRevenueRange] = useState<RevenueRange>("7d");
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [platform, setPlatform] = useState<PlatformStats | null>(null);
   const [search, setSearch] = useState("");
@@ -447,6 +452,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   const fetchedPatientsKey = useRef("");
   const fetchedFinanceVersion = useRef(-1);
   const fetchedFinanceActivityVersion = useRef(-1);
+  const fetchedRevenueSeriesKey = useRef("");
   const fetchedRemindersVersion = useRef(-1);
   const fetchedPlatform = useRef(false);
 
@@ -522,6 +528,16 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   }, [financeRefreshId, page, token]);
 
   useEffect(() => {
+    if (page !== "finance") return;
+    const key = `${financeRefreshId}:${revenueRange}`;
+    if (fetchedRevenueSeriesKey.current === key) return;
+    fetchedRevenueSeriesKey.current = key;
+    api<RevenueSeries>(`/api/finance/revenue-series?range=${revenueRange}`, auth(token))
+      .then(setRevenueSeries)
+      .catch((error) => setNotice(readError(error)));
+  }, [financeRefreshId, page, revenueRange, token]);
+
+  useEffect(() => {
     if (page !== "dashboard" && page !== "finance") return;
     if (fetchedRemindersVersion.current === remindersRefreshId) return;
     fetchedRemindersVersion.current = remindersRefreshId;
@@ -591,7 +607,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={refreshAppointments} /> : null}
         {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
         {page === "consultations" ? <ConsultationsPage token={token} patients={patients} appointments={appointments} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
-        {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} reminders={reminders} platform={platform} /> : null}
+        {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} revenueSeries={revenueSeries} revenueRange={revenueRange} onRevenueRangeChange={setRevenueRange} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
   );
@@ -1098,7 +1114,7 @@ function ConsultationFilters({ search, todayOnly, onSearch, onTodayOnly }: { sea
   );
 }
 
-function FinancePage({ token, finance, activity, reminders, platform }: { token: string; finance: FinanceSummary | null; activity: FinanceActivity[]; reminders: Reminder[]; platform: PlatformStats | null }) {
+function FinancePage({ token, finance, activity, revenueSeries, revenueRange, onRevenueRangeChange, reminders, platform }: { token: string; finance: FinanceSummary | null; activity: FinanceActivity[]; revenueSeries: RevenueSeries | null; revenueRange: RevenueRange; onRevenueRangeChange: (range: RevenueRange) => void; reminders: Reminder[]; platform: PlatformStats | null }) {
   return (
     <div className="admin-page">
       <section className="metrics finance-metrics">
@@ -1107,6 +1123,7 @@ function FinancePage({ token, finance, activity, reminders, platform }: { token:
         <Metric icon={<CreditCard />} label="Paiements espèces" value={money(finance?.payments.cashCents)} detail="Recettes du mois" />
         <Metric icon={<CreditCard />} label="Paiements carte" value={money(finance?.payments.cardCents)} detail="Recettes du mois" />
       </section>
+      <RevenueCharts series={revenueSeries} range={revenueRange} onRangeChange={onRevenueRangeChange} />
       <section className="admin-grid finance-grid">
         <RevenuePanel activity={activity} />
         <InvoiceTool token={token} />
@@ -1115,6 +1132,65 @@ function FinancePage({ token, finance, activity, reminders, platform }: { token:
         <OperationsPanel reminders={reminders} platform={platform} />
       </section>
     </div>
+  );
+}
+
+function RevenueCharts({ series, range, onRangeChange }: { series: RevenueSeries | null; range: RevenueRange; onRangeChange: (range: RevenueRange) => void }) {
+  const buckets = series?.buckets ?? [];
+  const totals = buckets.reduce((summary, bucket) => ({
+    paidCents: summary.paidCents + bucket.paidCents,
+    unpaidCents: summary.unpaidCents + bucket.unpaidCents,
+    cashCents: summary.cashCents + bucket.cashCents,
+    cardCents: summary.cardCents + bucket.cardCents
+  }), { paidCents: 0, unpaidCents: 0, cashCents: 0, cardCents: 0 });
+
+  return (
+    <Panel title="Courbes de revenus" subtitle="Filtrez les encaissements par période.">
+      <div className="revenue-chart-tools" role="tablist" aria-label="Période des revenus">
+        {([
+          ["24h", "24h"],
+          ["7d", "7 jours"],
+          ["30d", "30 jours"],
+          ["month", "Mois"]
+        ] as Array<[RevenueRange, string]>).map(([value, label]) => (
+          <button className={range === value ? "active" : undefined} key={value} onClick={() => onRangeChange(value)} type="button">{label}</button>
+        ))}
+      </div>
+      <div className="revenue-chart-grid">
+        <LineChart title="Encaissé" value={money(totals.paidCents)} buckets={buckets} field="paidCents" color="#0b7566" />
+        <LineChart title="À encaisser" value={money(totals.unpaidCents)} buckets={buckets} field="unpaidCents" color="#e07850" />
+        <LineChart title="Espèces" value={money(totals.cashCents)} buckets={buckets} field="cashCents" color="#2f6f9f" />
+        <LineChart title="Carte" value={money(totals.cardCents)} buckets={buckets} field="cardCents" color="#7b5bbd" />
+      </div>
+    </Panel>
+  );
+}
+
+function LineChart({ title, value, buckets, field, color }: { title: string; value: string; buckets: RevenueBucket[]; field: keyof Pick<RevenueBucket, "paidCents" | "unpaidCents" | "cashCents" | "cardCents">; color: string }) {
+  const width = 320;
+  const height = 132;
+  const padding = 12;
+  const max = Math.max(...buckets.map((bucket) => bucket[field]), 1);
+  const points = buckets.map((bucket, index) => {
+    const x = buckets.length <= 1 ? padding : padding + (index / (buckets.length - 1)) * (width - padding * 2);
+    const y = height - padding - (bucket[field] / max) * (height - padding * 2);
+    return `${x},${y}`;
+  }).join(" ");
+  const area = points ? `${padding},${height - padding} ${points} ${width - padding},${height - padding}` : "";
+  const labelEvery = Math.max(1, Math.ceil(buckets.length / 4));
+
+  return (
+    <article className="line-chart">
+      <header><span>{title}</span><strong>{value}</strong></header>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} ${value}`}>
+        <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
+        {area ? <polygon points={area} style={{ fill: color, opacity: 0.12 }} /> : null}
+        {points ? <polyline points={points} style={{ stroke: color }} /> : null}
+      </svg>
+      <div className="chart-labels">
+        {buckets.filter((_, index) => index % labelEvery === 0 || index === buckets.length - 1).map((bucket) => <span key={`${title}-${bucket.start}`}>{bucket.label}</span>)}
+      </div>
+    </article>
   );
 }
 

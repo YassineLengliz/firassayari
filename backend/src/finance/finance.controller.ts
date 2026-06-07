@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
-import { IsInt, IsString, Min } from "class-validator";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
 import { RbacGuard } from "../auth/rbac.guard";
 import { Roles } from "../auth/roles.decorator";
 import { FinanceService } from "./finance.service";
@@ -11,6 +11,12 @@ class InvoicePreviewDto {
   @IsInt()
   @Min(0)
   amountCents!: number;
+}
+
+class RevenueSeriesDto {
+  @IsOptional()
+  @IsIn(["24h", "7d", "30d", "month"])
+  range?: "24h" | "7d" | "30d" | "month";
 }
 
 @Controller("finance")
@@ -28,6 +34,12 @@ export class FinanceController {
   @Roles("DOCTOR", "SECRETARY", "SAAS_ADMIN")
   activity() {
     return this.finance.activity();
+  }
+
+  @Get("revenue-series")
+  @Roles("DOCTOR", "SECRETARY", "SAAS_ADMIN")
+  revenueSeries(@Query() dto: RevenueSeriesDto) {
+    return this.finance.revenueSeries(dto.range ?? "7d");
   }
 
   @Post("invoice-preview")

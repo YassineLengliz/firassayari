@@ -52,6 +52,50 @@ export class FinanceService {
     }));
   }
 
+  async revenueSeries(range: "24h" | "7d" | "30d" | "month") {
+    const config = revenueRangeConfig(range);
+    const invoices = await this.prisma.invoice.findMany({
+      where: { clinicId: PRIMARY_CLINIC_ID, createdAt: { gte: config.from, lt: config.to } },
+      orderBy: { createdAt: "asc" }
+    });
+
+    const buckets = Array.from({ length: config.bucketCount }, (_, index) => {
+      const start = new Date(config.from.getTime() + index * config.bucketMs);
+      const end = new Date(Math.min(start.getTime() + config.bucketMs, config.to.getTime()));
+      return {
+        label: config.label(start),
+        start: start.toISOString(),
+        end: end.toISOString(),
+        paidCents: 0,
+        unpaidCents: 0,
+        cashCents: 0,
+        cardCents: 0,
+        invoices: 0
+      };
+    });
+
+    for (const invoice of invoices) {
+      const index = Math.min(Math.floor((invoice.createdAt.getTime() - config.from.getTime()) / config.bucketMs), buckets.length - 1);
+      const bucket = buckets[index];
+      if (!bucket) continue;
+      bucket.invoices += 1;
+      if (invoice.paidAt) {
+        bucket.paidCents += invoice.amountCents;
+        if (invoice.paymentMethod === "CASH") bucket.cashCents += invoice.amountCents;
+        if (invoice.paymentMethod === "CARD") bucket.cardCents += invoice.amountCents;
+      } else {
+        bucket.unpaidCents += invoice.amountCents;
+      }
+    }
+
+    return {
+      range,
+      from: config.from.toISOString(),
+      to: config.to.toISOString(),
+      buckets
+    };
+  }
+
   invoicePreview(patientName: string, amountCents: number) {
     return {
       number: `FAC-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000 + 1000)}`,
@@ -62,4 +106,42 @@ export class FinanceService {
       pdfStatus: "ready-to-render"
     };
   }
+}
+
+function revenueRangeConfig(range: "24h" | "7d" | "30d" | "month") {
+  const to = new Date();
+  if (range === "24h") {
+    const from = new Date(to.getTime() - 24 * 60 * 60_000);
+    return {
+      from,
+      to,
+      bucketCount: 24,
+      bucketMs: 60 * 60_000,
+      label: (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit" })
+    };
+  }
+
+  if (range === "month") {
+    const from = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+    const nextMonth = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth() + 1, 1));
+    return {
+      from,
+      to: nextMonth,
+      bucketCount: Math.ceil((nextMonth.getTime() - from.getTime()) / (24 * 60 * 60_000)),
+      bucketMs: 24 * 60 * 60_000,
+      label: (date: Date) => date.toLocaleDateString("fr-FR", { day: "2-digit" })
+    };
+  }
+
+  const days = range === "7d" ? 7 : 30;
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - days + 1);
+  from.setUTCHours(0, 0, 0, 0);
+  return {
+    from,
+    to,
+    bucketCount: days,
+    bucketMs: 24 * 60 * 60_000,
+    label: (date: Date) => date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+  };
 }

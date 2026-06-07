@@ -1742,6 +1742,89 @@ output.error,
   align-items: stretch;
 }
 
+.revenue-chart-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.revenue-chart-tools button {
+  background: #f8faf8;
+  border-color: #dfe9e4;
+  border-radius: 999px;
+  color: #254740;
+  font-size: 0.82rem;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.78rem;
+}
+
+.revenue-chart-tools button.active {
+  background: #17352f;
+  border-color: #17352f;
+  color: #fff;
+}
+
+.revenue-chart-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.line-chart {
+  background: #f8faf8;
+  border: 1px solid #dfe9e4;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.line-chart header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.line-chart header span {
+  color: #63766f;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.line-chart header strong {
+  color: #1f332f;
+  font-size: 1.25rem;
+}
+
+.line-chart svg {
+  display: block;
+  height: 8.25rem;
+  overflow: visible;
+  width: 100%;
+}
+
+.line-chart line {
+  stroke: #d5e1dc;
+  stroke-width: 1;
+}
+
+.line-chart polyline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.chart-labels {
+  color: #63766f;
+  display: flex;
+  font-size: 0.72rem;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
 .finance-activity {
   display: grid;
   gap: 0.65rem;
@@ -2096,6 +2179,10 @@ output.error,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .revenue-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .patient-path {
     grid-template-columns: 1fr;
   }
@@ -2223,6 +2310,10 @@ output.error,
   }
 
   .cash-snapshot {
+    grid-template-columns: 1fr;
+  }
+
+  .revenue-chart-grid {
     grid-template-columns: 1fr;
   }
 }
