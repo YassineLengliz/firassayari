@@ -79,6 +79,7 @@ model Patient {
   clinic            Clinic         @relation(fields: [clinicId], references: [id])
   appointments      Appointment[]
   consultations     Consultation[]
+  ordonnances       Ordonnance[]
   invoices          Invoice[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -122,6 +123,20 @@ model Consultation {
   invoice              Invoice?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+model Ordonnance {
+  id               String   @id @default(cuid())
+  patientId        String
+  doctorName       String   @default("Dr Firas Sayari")
+  doctorShortName  String   @default("Firas .S")
+  content          String
+  imageDataUrl     String
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([patientId, createdAt])
 }
 
 model Invoice {

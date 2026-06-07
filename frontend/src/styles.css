@@ -1644,6 +1644,10 @@ output.error,
   grid-template-columns: minmax(20rem, 0.78fr) minmax(24rem, 1.22fr);
 }
 
+.ordonnance-page > .panel:last-child {
+  grid-column: 1 / -1;
+}
+
 .ordonnance-form textarea {
   min-height: 14rem;
 }
@@ -1660,6 +1664,32 @@ output.error,
   box-shadow: 0 12px 26px rgba(25, 53, 47, 0.08);
   display: block;
   width: 100%;
+}
+
+.ordonnance-history {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ordonnance-history article {
+  background: #f8faf8;
+  border: 1px solid #dfe9e4;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+
+.ordonnance-history article > div:first-child {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.ordonnance-history span,
+.ordonnance-history p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 0;
 }
 
 .download-command {

@@ -7,6 +7,7 @@ import { PrismaModule } from "./common/prisma/prisma.module";
 import { ConsultationsModule } from "./consultations/consultations.module";
 import { FinanceModule } from "./finance/finance.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OrdonnancesModule } from "./ordonnances/ordonnances.module";
 import { PatientsModule } from "./patients/patients.module";
 import { AdminModule } from "./admin/admin.module";
 
@@ -18,6 +19,7 @@ import { AdminModule } from "./admin/admin.module";
     AppointmentsModule,
     PatientsModule,
     ConsultationsModule,
+    OrdonnancesModule,
     FinanceModule,
     AiModule,
     NotificationsModule,

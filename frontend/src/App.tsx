@@ -56,6 +56,7 @@ type FinanceActivity = { id: string; number: string; patientName: string; amount
 type RevenueRange = "24h" | "7d" | "30d" | "month";
 type RevenueBucket = { label: string; start: string; end: string; paidCents: number; unpaidCents: number; cashCents: number; invoices: number };
 type RevenueSeries = { range: RevenueRange; from: string; to: string; buckets: RevenueBucket[] };
+type OrdonnanceSummary = { id: string; patientId: string; patientName: string; doctorName: string; doctorShortName: string; content: string; imageDataUrl: string; createdAt: string };
 type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "ordonnance" | "finance";
 type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
 
@@ -608,7 +609,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={refreshAppointments} /> : null}
         {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
         {page === "consultations" ? <ConsultationsPage token={token} patients={patients} appointments={appointments} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
-        {page === "ordonnance" ? <OrdonnancePage patients={patients} /> : null}
+        {page === "ordonnance" ? <OrdonnancePage patients={patients} token={token} /> : null}
         {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} revenueSeries={revenueSeries} revenueRange={revenueRange} onRevenueRangeChange={setRevenueRange} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
@@ -1107,11 +1108,13 @@ function ConsultationsPage({ token, patients, appointments, onChanged }: { token
   );
 }
 
-function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
+function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token: string }) {
   const [patientId, setPatientId] = useState("");
   const [patientQuery, setPatientQuery] = useState("");
   const [content, setContent] = useState("");
   const [generatedUrl, setGeneratedUrl] = useState("");
+  const [savedOrdonnances, setSavedOrdonnances] = useState<OrdonnanceSummary[]>([]);
+  const [message, setMessage] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectedPatient = patients.find((patient) => patient.id === patientId) ?? patients[0] ?? null;
   const patientResults = useMemo(() => {
@@ -1127,6 +1130,12 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
     if (patientId && !patients.some((patient) => patient.id === patientId)) setPatientId(patients[0]?.id ?? "");
   }, [patientId, patients]);
 
+  useEffect(() => {
+    api<OrdonnanceSummary[]>("/api/ordonnances", auth(token))
+      .then(setSavedOrdonnances)
+      .catch((error) => setMessage(readError(error)));
+  }, [token]);
+
   function pickPatient(patient: PatientSummary) {
     setPatientId(patient.id);
     setPatientQuery(`${patient.firstName} ${patient.lastName}`.trim());
@@ -1134,6 +1143,7 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
 
   async function generateOrdonnance(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    setMessage("");
     if (!selectedPatient || !content.trim()) return;
 
     const canvas = canvasRef.current;
@@ -1183,14 +1193,27 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
     context.fillText("Signature", 1340, 880);
     context.textAlign = "left";
 
-    setGeneratedUrl(canvas.toDataURL("image/png"));
+    const imageDataUrl = canvas.toDataURL("image/png");
+    setGeneratedUrl(imageDataUrl);
+
+    try {
+      const saved = await api<OrdonnanceSummary>("/api/ordonnances", {
+        ...auth(token),
+        method: "POST",
+        body: JSON.stringify({ patientId: selectedPatient.id, content: content.trim(), imageDataUrl })
+      });
+      setSavedOrdonnances((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      setMessage("Ordonnance enregistrée.");
+    } catch (error) {
+      setMessage(readError(error));
+    }
   }
 
-  function printOrdonnance() {
-    if (!generatedUrl) return;
+  function printOrdonnance(imageUrl = generatedUrl) {
+    if (!imageUrl) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`<!doctype html><html><head><title>Ordonnance</title><style>body{margin:0;display:grid;place-items:center;background:#fff}img{max-width:100%;height:auto}</style></head><body><img src="${generatedUrl}" alt="Ordonnance" /></body></html>`);
+    printWindow.document.write(`<!doctype html><html><head><title>Ordonnance</title><style>body{margin:0;display:grid;place-items:center;background:#fff}img{max-width:100%;height:auto}</style></head><body><img src="${imageUrl}" alt="Ordonnance" /></body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
       printWindow.focus();
@@ -1223,6 +1246,7 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
             <textarea required value={content} onChange={(event) => setContent(event.target.value)} placeholder="Ex : Amoxicilline 1g, 1 comprimé matin et soir pendant 7 jours..." />
           </label>
           <button disabled={!selectedPatient || !content.trim()}><ClipboardPlus /> Générer</button>
+          {message ? <output>{message}</output> : null}
         </form>
       </Panel>
 
@@ -1233,10 +1257,30 @@ function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
             <img src={generatedUrl} alt="Ordonnance générée" />
             <div className="inline-actions">
               <a className="download-command" download={`ordonnance-${selectedPatient?.firstName ?? "patient"}-${selectedPatient?.lastName ?? ""}.png`} href={generatedUrl}><FileText /> Télécharger</a>
-              <button type="button" onClick={printOrdonnance}><FileText /> Imprimer</button>
+              <button type="button" onClick={() => printOrdonnance()}><FileText /> Imprimer</button>
             </div>
           </div>
         ) : <p className="empty">Aucune ordonnance générée.</p>}
+      </Panel>
+
+      <Panel title="Ordonnances enregistrées" subtitle="Documents sauvegardés dans PostgreSQL.">
+        {!savedOrdonnances.length ? <p className="empty">Aucune ordonnance sauvegardée.</p> : (
+          <div className="ordonnance-history">
+            {savedOrdonnances.map((ordonnance) => (
+              <article key={ordonnance.id}>
+                <div>
+                  <strong>{ordonnance.patientName}</strong>
+                  <span>{formatDateTime(ordonnance.createdAt)}</span>
+                </div>
+                <p>{ordonnance.content}</p>
+                <div className="inline-actions">
+                  <a className="download-command" download={`ordonnance-${ordonnance.patientName.replace(/\s+/g, "-")}.png`} href={ordonnance.imageDataUrl}><FileText /> Télécharger</a>
+                  <button type="button" onClick={() => printOrdonnance(ordonnance.imageDataUrl)}><FileText /> Imprimer</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </Panel>
     </section>
   );
