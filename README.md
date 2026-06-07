@@ -20,6 +20,7 @@ Admin pages:
 - `/admin/agenda`
 - `/admin/patients`
 - `/admin/consultations`
+- `/admin/ordonnance`
 - `/admin/finance`
 
 Backend:
@@ -70,6 +71,7 @@ The Vercel API entrypoint is `api/server.ts`; local development still uses the N
 ## Key Paths
 
 - `frontend/src/App.tsx`: Vite public booking page and `/admin` workspace.
+- `frontend/public/images/template.png`: ordonnance image template used by `/admin/ordonnance` for generated documents.
 - `backend/src`: NestJS API modules.
 - `api/server.ts`: single-project Vercel API function.
 - `vercel.json`: Vite output directory and one-domain frontend/API rewrites.

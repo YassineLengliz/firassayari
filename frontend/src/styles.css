@@ -1639,6 +1639,43 @@ output.error,
   margin-bottom: 0.75rem;
 }
 
+.ordonnance-page {
+  align-items: start;
+  grid-template-columns: minmax(20rem, 0.78fr) minmax(24rem, 1.22fr);
+}
+
+.ordonnance-form textarea {
+  min-height: 14rem;
+}
+
+.ordonnance-preview {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.ordonnance-preview img {
+  background: #fff;
+  border: 1px solid #dfe9e4;
+  border-radius: 8px;
+  box-shadow: 0 12px 26px rgba(25, 53, 47, 0.08);
+  display: block;
+  width: 100%;
+}
+
+.download-command {
+  align-items: center;
+  background: var(--leaf);
+  border: 1px solid var(--leaf);
+  border-radius: 12px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 0.55rem;
+  justify-content: center;
+  min-height: 2.7rem;
+  padding: 0.65rem 0.9rem;
+}
+
 .consultation-filters .search {
   max-width: none;
 }
@@ -2234,6 +2271,7 @@ output.error,
   .admin-grid,
   .agenda-page,
   .consultation-page,
+  .ordonnance-page,
   .record-grid {
     grid-template-columns: 1fr;
   }

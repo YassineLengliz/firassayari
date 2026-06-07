@@ -56,7 +56,7 @@ type FinanceActivity = { id: string; number: string; patientName: string; amount
 type RevenueRange = "24h" | "7d" | "30d" | "month";
 type RevenueBucket = { label: string; start: string; end: string; paidCents: number; unpaidCents: number; cashCents: number; invoices: number };
 type RevenueSeries = { range: RevenueRange; from: string; to: string; buckets: RevenueBucket[] };
-type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "finance";
+type AdminPage = "dashboard" | "agenda" | "patients" | "consultations" | "ordonnance" | "finance";
 type SpeechStatus = "idle" | "listening" | "unsupported" | "error";
 
 type RecognitionResult = {
@@ -93,6 +93,7 @@ const adminPages: Array<{ page: AdminPage; href: string; label: string; icon: Re
   { page: "agenda", href: "/admin/agenda", label: "Agenda", icon: <CalendarCheck /> },
   { page: "patients", href: "/admin/patients", label: "Patients", icon: <Users /> },
   { page: "consultations", href: "/admin/consultations", label: "Consultations", icon: <FileText /> },
+  { page: "ordonnance", href: "/admin/ordonnance", label: "Ordonnance", icon: <ClipboardPlus /> },
   { page: "finance", href: "/admin/finance", label: "Finances", icon: <CreditCard /> }
 ];
 
@@ -494,7 +495,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
   }, [appointmentsRefreshId, page, token]);
 
   useEffect(() => {
-    if (page !== "dashboard" && page !== "patients" && page !== "consultations") return;
+    if (page !== "dashboard" && page !== "patients" && page !== "consultations" && page !== "ordonnance") return;
     const searchQuery = page === "patients" ? search.trim() : "";
     const key = `${patientsRefreshId}:${searchQuery}`;
     if (fetchedPatientsKey.current === key) return;
@@ -607,6 +608,7 @@ function AdminWorkspace({ token, user, onLogout }: { token: string; user: Sessio
         {page === "agenda" ? <AgendaPage appointments={appointments} token={token} onChanged={refreshAppointments} /> : null}
         {page === "patients" ? <PatientsPage patients={patients} token={token} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
         {page === "consultations" ? <ConsultationsPage token={token} patients={patients} appointments={appointments} onChanged={() => setPatientsRefreshId((value) => value + 1)} /> : null}
+        {page === "ordonnance" ? <OrdonnancePage patients={patients} /> : null}
         {page === "finance" ? <FinancePage token={token} finance={finance} activity={financeActivity} revenueSeries={revenueSeries} revenueRange={revenueRange} onRevenueRangeChange={setRevenueRange} reminders={reminders} platform={platform} /> : null}
       </section>
     </main>
@@ -1102,6 +1104,118 @@ function ConsultationsPage({ token, patients, appointments, onChanged }: { token
       </section>
       {selectedPatientId ? <PatientRecordModal patientId={selectedPatientId} token={token} onClose={() => setSelectedPatientId("")} onChanged={onChanged} /> : null}
     </>
+  );
+}
+
+function OrdonnancePage({ patients }: { patients: PatientSummary[] }) {
+  const [patientId, setPatientId] = useState("");
+  const [content, setContent] = useState("");
+  const [generatedUrl, setGeneratedUrl] = useState("");
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const selectedPatient = patients.find((patient) => patient.id === patientId) ?? patients[0] ?? null;
+
+  useEffect(() => {
+    if (!patientId && patients[0]) setPatientId(patients[0].id);
+    if (patientId && !patients.some((patient) => patient.id === patientId)) setPatientId(patients[0]?.id ?? "");
+  }, [patientId, patients]);
+
+  async function generateOrdonnance(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    if (!selectedPatient || !content.trim()) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const template = await loadImage("/images/template.png");
+    canvas.width = 1536;
+    canvas.height = 1024;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(template, 0, 0, canvas.width, canvas.height);
+
+    context.fillStyle = "#12323c";
+    context.font = "700 38px Arial";
+    context.fillText("Dr Firas Sayari", 120, 118);
+    context.font = "400 24px Arial";
+    context.fillText("Chirurgien dentiste", 120, 154);
+    context.fillText("Menzel Temime", 120, 188);
+
+    context.textAlign = "right";
+    context.font = "400 24px Arial";
+    context.fillText(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 1410, 154);
+    context.textAlign = "left";
+
+    context.strokeStyle = "#0d8fa8";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.moveTo(120, 235);
+    context.lineTo(1410, 235);
+    context.stroke();
+
+    context.fillStyle = "#12323c";
+    context.font = "700 32px Arial";
+    context.fillText("Ordonnance", 120, 305);
+    context.font = "400 26px Arial";
+    context.fillText(`Patient : ${selectedPatient.firstName} ${selectedPatient.lastName}`.trim(), 120, 360);
+    if (selectedPatient.phone) context.fillText(`Téléphone : ${selectedPatient.phone}`, 120, 398);
+
+    context.font = "400 30px Arial";
+    drawWrappedText(context, content.trim(), 160, 500, 1160, 46);
+
+    context.font = "700 24px Arial";
+    context.textAlign = "right";
+    context.fillText("Signature", 1340, 880);
+    context.textAlign = "left";
+
+    setGeneratedUrl(canvas.toDataURL("image/png"));
+  }
+
+  function printOrdonnance() {
+    if (!generatedUrl) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!doctype html><html><head><title>Ordonnance</title><style>body{margin:0;display:grid;place-items:center;background:#fff}img{max-width:100%;height:auto}</style></head><body><img src="${generatedUrl}" alt="Ordonnance" /></body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  }
+
+  return (
+    <section className="admin-page ordonnance-page">
+      <Panel title="Ordonnance" subtitle="Sélectionnez un patient, rédigez l'ordonnance, puis générez le document.">
+        <form className="stack-form ordonnance-form" onSubmit={generateOrdonnance}>
+          <label>
+            Patient
+            <select value={selectedPatient?.id ?? ""} onChange={(event) => setPatientId(event.target.value)}>
+              {patients.map((patient) => <option value={patient.id} key={patient.id}>{patient.firstName} {patient.lastName}</option>)}
+            </select>
+          </label>
+          <label>
+            Texte de l'ordonnance
+            <textarea required value={content} onChange={(event) => setContent(event.target.value)} placeholder="Ex : Amoxicilline 1g, 1 comprimé matin et soir pendant 7 jours..." />
+          </label>
+          <button disabled={!selectedPatient || !content.trim()}><ClipboardPlus /> Générer</button>
+        </form>
+      </Panel>
+
+      <Panel title="Aperçu" subtitle="Le document généré utilise le template du cabinet.">
+        <canvas ref={canvasRef} hidden />
+        {generatedUrl ? (
+          <div className="ordonnance-preview">
+            <img src={generatedUrl} alt="Ordonnance générée" />
+            <div className="inline-actions">
+              <a className="download-command" download={`ordonnance-${selectedPatient?.firstName ?? "patient"}-${selectedPatient?.lastName ?? ""}.png`} href={generatedUrl}><FileText /> Télécharger</a>
+              <button type="button" onClick={printOrdonnance}><FileText /> Imprimer</button>
+            </div>
+          </div>
+        ) : <p className="empty">Aucune ordonnance générée.</p>}
+      </Panel>
+    </section>
   );
 }
 
@@ -1635,6 +1749,39 @@ function appointmentDateTime(appointment: AppointmentSummary) {
   return `${startsAt} - ${endsAt}`;
 }
 
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function drawWrappedText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
+  const paragraphs = text.split(/\n+/);
+  let currentY = y;
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/);
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (context.measureText(candidate).width > maxWidth && line) {
+        context.fillText(line, x, currentY);
+        line = word;
+        currentY += lineHeight;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) {
+      context.fillText(line, x, currentY);
+      currentY += lineHeight;
+    }
+    currentY += lineHeight * 0.35;
+  }
+}
+
 function splitDisplayName(value: string) {
   const [firstName, ...lastNameParts] = value.trim().split(/\s+/);
   return {
@@ -1650,6 +1797,7 @@ function currentAdminPage(): AdminPage {
   if (path === "/admin/agenda" || legacyHash === "agenda") return "agenda";
   if (path === "/admin/patients" || legacyHash === "patients") return "patients";
   if (path === "/admin/consultations" || legacyHash === "consultation") return "consultations";
+  if (path === "/admin/ordonnance" || legacyHash === "ordonnance") return "ordonnance";
   if (path === "/admin/finance" || legacyHash === "finance") return "finance";
   return "dashboard";
 }
