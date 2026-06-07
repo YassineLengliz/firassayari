@@ -625,6 +625,7 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
   const [draftRange, setDraftRange] = useState<{ startsAt: Date; endsAt: Date } | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
+  const calendarRef = useRef<FullCalendar | null>(null);
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedId) ?? null;
   const calendarAppointments = appointments.filter((appointment) => appointment.status === "CONFIRMED" || appointment.status === "COMPLETED");
 
@@ -661,11 +662,22 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
     setSelectedId(info.event.id);
   }
 
+  function closeCreateModal() {
+    calendarRef.current?.getApi().unselect();
+    setDraftRange(null);
+  }
+
+  function completeCreateModal() {
+    closeCreateModal();
+    onChanged();
+  }
+
   return (
     <section className="admin-page agenda-page agenda-full-page">
       <Panel title="Agenda du cabinet" subtitle="Sélectionnez une plage horaire directement dans le calendrier pour ajouter un rendez-vous.">
         <div className="cabinet-calendar">
           <FullCalendar
+            ref={calendarRef}
             plugins={[timeGridPlugin, interactionPlugin]}
             locale={frLocale}
             initialView="timeGridWeek"
@@ -700,7 +712,7 @@ function AgendaPage({ appointments, token, onChanged }: { appointments: Appointm
         {message ? <output>{message}</output> : null}
       </Panel>
       {selectedAppointment ? <PatientRecordModal appointment={selectedAppointment} patientId={selectedAppointment.patientId} token={token} onClose={() => setSelectedId("")} onChanged={onChanged} /> : null}
-      {draftRange ? <AgendaCreateModal range={draftRange} token={token} onClose={() => setDraftRange(null)} onCreated={() => { setDraftRange(null); onChanged(); }} /> : null}
+      {draftRange ? <AgendaCreateModal range={draftRange} token={token} onClose={closeCreateModal} onCreated={completeCreateModal} /> : null}
     </section>
   );
 }
