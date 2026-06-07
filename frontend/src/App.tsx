@@ -103,7 +103,7 @@ function PatientLanding() {
     phone: "",
     date: tomorrowDate(),
     time: "09:00",
-    reason: "Bilan dentaire"
+    reason: ""
   });
   const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -261,14 +261,8 @@ function PatientLanding() {
               </label>
             </div>
             <label className="booking-reason">
-              Motif
-              <select required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })}>
-                <option>Bilan dentaire</option>
-                <option>Detartrage</option>
-                <option>Douleur ou urgence</option>
-                <option>Soins conservateurs</option>
-                <option>Esthetique du sourire</option>
-              </select>
+              Decrivez ce que vous souhaitez
+              <textarea required value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Ex: controle, douleur, detartrage, soin dentaire..." />
             </label>
             <label>
               Date souhaitee
@@ -278,7 +272,7 @@ function PatientLanding() {
               <CalendarCheck />
               <span><small>Creneau selectionne</small><strong>{readableDate(form.date)} a {form.time}</strong></span>
             </div>
-            <button disabled={requestState === "sending" || availabilityState !== "ready" || !selectedSlot?.available}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Envoyer ma demande"}</button>
+            <button disabled={requestState === "sending" || availabilityState !== "ready" || !selectedSlot?.available}><ClipboardPlus /> {requestState === "sending" ? "Envoi..." : "Prendre un rendez-vous"}</button>
             {message ? <output className={requestState}>{message}</output> : null}
           </form>
 
