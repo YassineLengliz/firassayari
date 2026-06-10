@@ -1170,43 +1170,19 @@ function OrdonnancePage({ patients, token }: { patients: PatientSummary[]; token
     canvas.width = 1536;
     canvas.height = 1024;
 
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(template, 0, 0, canvas.width, canvas.height);
 
     context.fillStyle = "#12323c";
-    context.font = "700 38px Arial";
-    context.fillText("Dr Firas Sayari", 120, 118);
-    context.font = "400 24px Arial";
-    context.fillText("Chirurgien dentiste", 120, 154);
-    context.fillText("Menzel Temime", 120, 188);
+    context.font = "400 26px Arial";
+    context.fillText(`Patient : ${selectedPatient.firstName} ${selectedPatient.lastName}`.trim(), 190, 300);
+    if (selectedPatient.phone) context.fillText(`Téléphone : ${selectedPatient.phone}`, 190, 340);
 
     context.textAlign = "right";
-    context.font = "400 24px Arial";
-    context.fillText(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 1410, 154);
+    context.fillText(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 1345, 300);
     context.textAlign = "left";
-
-    context.strokeStyle = "#0d8fa8";
-    context.lineWidth = 4;
-    context.beginPath();
-    context.moveTo(120, 235);
-    context.lineTo(1410, 235);
-    context.stroke();
-
-    context.fillStyle = "#12323c";
-    context.font = "700 32px Arial";
-    context.fillText("Ordonnance", 120, 305);
-    context.font = "400 26px Arial";
-    context.fillText(`Patient : ${selectedPatient.firstName} ${selectedPatient.lastName}`.trim(), 120, 360);
-    if (selectedPatient.phone) context.fillText(`Téléphone : ${selectedPatient.phone}`, 120, 398);
 
     context.font = "400 30px Arial";
-    drawWrappedText(context, content.trim(), 160, 500, 1160, 46);
-
-    context.font = "700 24px Arial";
-    context.textAlign = "right";
-    context.fillText("Signature", 1340, 880);
-    context.textAlign = "left";
+    drawWrappedText(context, content.trim(), 205, 440, 1130, 46);
 
     const imageDataUrl = canvas.toDataURL("image/png");
     setGeneratedUrl(imageDataUrl);
